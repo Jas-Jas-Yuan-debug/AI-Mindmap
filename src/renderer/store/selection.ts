@@ -36,6 +36,22 @@ export interface SelectionState {
   ids: Record<string, true>;
 
   /**
+   * Handshake between subagent B (create-on-double-click) and subagent C
+   * (edit-mode textarea overlay). When B creates a card via double-click,
+   * it sets this to the new card's id; C's edit-mode component reads it
+   * via `consumePendingEdit()` on mount/effect and immediately opens the
+   * textarea so the user can type without an extra click.
+   *
+   * Null when no card is waiting for the edit overlay.
+   *
+   * Why this slice (vs. a new uiState store): selection is already the
+   * "which card is the user focused on" channel, and the freshly-created
+   * card is selected at the same moment its edit is pending. Co-locating
+   * keeps the surface small.
+   */
+  pendingEditId: string | null;
+
+  /**
    * Select a single id. With `additive=true`, append to the current
    * selection (used by Shift+click in Phase 4). With `additive=false`
    * (the default), the new selection replaces whatever was selected.
@@ -51,10 +67,21 @@ export interface SelectionState {
   clear(): void;
   /** O(1) check used by render code. */
   isSelected(id: string): boolean;
+  /**
+   * Mark `id` as pending-edit (or pass `null` to clear). Sibling C calls
+   * `consumePendingEdit()` to read-and-clear atomically.
+   */
+  setPendingEdit(id: string | null): void;
+  /**
+   * Atomically read the current `pendingEditId` and clear it. Returns
+   * the id (or null when no edit is pending).
+   */
+  consumePendingEdit(): string | null;
 }
 
 export const useSelection = create<SelectionState>((set, get) => ({
   ids: {},
+  pendingEditId: null,
   select: (id, additive = false) =>
     set((s) =>
       additive ? { ids: { ...s.ids, [id]: true } } : { ids: { [id]: true } },
@@ -86,4 +113,10 @@ export const useSelection = create<SelectionState>((set, get) => ({
     set({ ids: Object.fromEntries(ids.map((i) => [i, true])) as Record<string, true> }),
   clear: () => set({ ids: {} }),
   isSelected: (id) => Boolean(get().ids[id]),
+  setPendingEdit: (id) => set({ pendingEditId: id }),
+  consumePendingEdit: () => {
+    const v = get().pendingEditId;
+    if (v !== null) set({ pendingEditId: null });
+    return v;
+  },
 }));
