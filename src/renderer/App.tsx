@@ -1,59 +1,14 @@
-import { useEffect, useState } from "react";
-import { Stage, Layer, Rect, Text } from "react-konva";
+import { Canvas } from "./canvas/Canvas.js";
 import { Chrome } from "./ui/Chrome.js";
 
-const ROOT_LABEL = "Root";
-const ROOT_WIDTH = 160;
-const ROOT_HEIGHT = 64;
-const ROOT_RADIUS = 14;
-
-function useViewportSize() {
-  const [size, setSize] = useState({
-    width: typeof window !== "undefined" ? window.innerWidth : 1200,
-    height: typeof window !== "undefined" ? window.innerHeight : 800,
-  });
-  useEffect(() => {
-    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  return size;
-}
-
+// App is a thin shell: <Canvas /> owns the Konva Stage + viewport state,
+// <Chrome /> owns the floating UI Islands on top. App.tsx itself holds
+// no canvas/viewport state — that responsibility lives in the canvas/
+// directory and the Zustand viewport slice.
 export default function App() {
-  const { width, height } = useViewportSize();
-  const rectX = (width - ROOT_WIDTH) / 2;
-  const rectY = (height - ROOT_HEIGHT) / 2;
-
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <Stage width={width} height={height} style={{ background: "var(--aim-color-canvas-bg)" }}>
-        <Layer>
-          <Rect
-            x={rectX}
-            y={rectY}
-            width={ROOT_WIDTH}
-            height={ROOT_HEIGHT}
-            cornerRadius={ROOT_RADIUS}
-            fill="#6965db"
-            stroke="#a8a5ff"
-            strokeWidth={1.5}
-          />
-          <Text
-            x={rectX}
-            y={rectY}
-            width={ROOT_WIDTH}
-            height={ROOT_HEIGHT}
-            text={ROOT_LABEL}
-            fontSize={18}
-            fontStyle="600"
-            fontFamily="system-ui, -apple-system, 'Segoe UI', sans-serif"
-            fill="#ffffff"
-            align="center"
-            verticalAlign="middle"
-          />
-        </Layer>
-      </Stage>
+      <Canvas />
       <Chrome />
     </div>
   );
