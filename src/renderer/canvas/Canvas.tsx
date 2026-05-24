@@ -10,6 +10,8 @@ import { Origin } from "./Origin.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
 import { usePan } from "./interactions/usePan.js";
 import { useZoom } from "./interactions/useZoom.js";
+import { useDeleteKey } from "./interactions/useDeleteKey.js";
+import { useCreate } from "./interactions/useCreate.js";
 
 // The viewport-driven Konva Stage. Owns its own size (responsive to window
 // resize) and reads pan/zoom from the Zustand viewport store. Phase 1 PR 1
@@ -55,6 +57,11 @@ export function Canvas() {
 
   const pan = usePan();
   const zoomI = useZoom();
+  // Phase 2 PR 2 interactions: keyboard Delete/Backspace + double-click-empty
+  // creates a card. Both hooks are mounted once; they read store state via
+  // getState() so they don't subscribe to per-keystroke re-renders.
+  useDeleteKey();
+  const create = useCreate();
 
   // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
   const onWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -92,6 +99,8 @@ export function Canvas() {
       onMouseUp={pan.onMouseUp}
       onMouseLeave={pan.onMouseLeave}
       onWheel={onWheel}
+      onDblClick={create.onDblClick}
+      onDblTap={create.onDblClick}
     >
       {gridVisible ? (
         <Layer listening={false}>
