@@ -621,12 +621,14 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - Single-card color: right-click → color picker (8-color palette).
 - Zustand `nodes` slice with `addNode`, `updateNode`, `deleteNode`, `moveNode`, `resizeNode` actions.
 
+**Phase 2 status: 1 / 6 criteria met.** Open follow-ups: 100-card perf (sibling PR), edit-textarea alignment (sibling PR), markdown rendering (sibling PR). Deferred to Phase 5: round-trip save/load preserves text card fields; E2E test for create→edit→save→reload.
+
 **Exit criteria**
 - [ ] Create 100 cards, no visible lag during pan/zoom
 - [ ] Edit-mode textarea always aligns with the Konva node (zoom + pan synced)
 - [ ] Markdown renders: headers, lists, bold/italic, code blocks, links, inline images via URL
 - [ ] Round-trip save/load preserves every text card field
-- [ ] Unit tests for node store actions
+- [x] Unit tests for node store actions (closed by PR #23 — nodes.test.ts)
 - [ ] E2E test: create card, edit it, save file, reload, content preserved
 
 **Estimated PRs:** 4–6
@@ -903,3 +905,4 @@ History:
 - 2026-05-24: PR #20 — Phase 1 foundation: Canvas Stage + viewport store + coord math + tests
 - 2026-05-24: PR #21 — Phase 1 pan/zoom + ZoomControls wire
 - 2026-05-24: PR #22 — Phase 1 grid + status bar + view toggle + fit-to-content
+- 2026-05-24: PR #23 — Phase 2 foundation: nodes + selection stores + TextNode renderer + select interaction + tests
