@@ -560,19 +560,26 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - Add a CI guard (one-liner script) that fails if the web build's output contains the string `"electron"` (catches accidental Electron imports leaking into web).
 
 **Exit criteria**
-- [ ] `npm run dev:electron` opens the desktop app with the React+Konva root rect
-- [ ] `npm run dev:web` serves a browser version with the same React+Konva root rect at `http://localhost:5173`
-- [ ] `npm run build:electron && npm start` runs the packaged desktop app
-- [ ] `npm run build:web && npm run preview:web` serves the production web bundle
-- [ ] `npm run typecheck` passes with zero errors
-- [ ] `npm run lint` passes
-- [ ] One Vitest unit test passes
-- [ ] One Electron e2e test launches the app and asserts the window title
-- [ ] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering
-- [ ] Web bundle does NOT contain `"electron"` string (CI guard passes)
-- [ ] CSP strict on both targets; preload contextBridge in place for Electron
-- [ ] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target
-- [ ] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now)
+- [x] `npm run dev:electron` opens the desktop app with the React+Konva root rect (PR #10 set up, PR #12 fixed CJS-main crash; Electron process verified alive)
+- [x] `npm run dev:web` serves a browser version with the same React+Konva root rect at `http://localhost:5173` (PR #10; visually verified via preview MCP in PR #11)
+- [ ] `npm run build:electron && npm start` runs the packaged desktop app (build verified, end-to-end `npm start` launch not yet smoke-checked)
+- [ ] `npm run build:web && npm run preview:web` serves the production web bundle (build verified, preview not yet smoke-checked)
+- [x] `npm run typecheck` passes with zero errors (PR #10)
+- [ ] `npm run lint` passes (BROKEN — ESLint 9 requires flat config, but PR #10 shipped legacy `.eslintrc.cjs`; tracked as issue #9 Q4 follow-up)
+- [x] One Vitest unit test passes (`tests/unit/smoke.test.ts`, PR #10)
+- [ ] One Electron e2e test launches the app and asserts the window title (Playwright not set up; deferred to Phase 0 PR 2)
+- [ ] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering (Playwright not set up; deferred to Phase 0 PR 2)
+- [x] Web bundle does NOT contain `"electron"` string (CI guard passes) (`scripts/verify-web-no-electron.mjs`, PR #10)
+- [x] CSP strict on both targets; preload contextBridge in place for Electron (PR #10; note `style-src 'unsafe-inline'` and `connect-src ws:` allowed for React + Vite HMR — documented in `src/renderer/index.html`)
+- [x] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target (PR #8 plan amendment)
+- [x] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now) (PR #10)
+
+**Phase 0 status: 8 / 13 criteria met.** Open follow-ups to close the phase:
+1. ESLint 9 flat config migration — fixes `npm run lint` (issue #9 Q4)
+2. Vitest `environmentMatchGlobs` + jsdom — pre-req for proper renderer tests (issue #9 Q5)
+3. Playwright E2E for Electron + web — closes the two e2e criteria
+4. GitHub Actions CI workflow — runs all of the above on every PR (issue #9 Q1)
+5. Smoke verify `npm start` and `npm run preview:web` end-to-end
 
 **Estimated PRs:** 4–6 (TS+Vite dual-config, React+Konva parity, Platform adapter skeleton, lint/format, test infra)
 
@@ -892,3 +899,4 @@ History:
 - 2026-05-24: initial version
 - 2026-05-24: amendment — multi-platform (Electron + Web), JSON Canvas 1.0 file format, Excalidraw-inspired UI
 - 2026-05-24: amendment — DROPPED multi-user collaboration (any form, permanently) and DROPPED interop with other apps (Obsidian Canvas / Excalidraw / Miro / Figma — permanently). File format switched from `.canvas` (JSON Canvas 1.0 spec, Obsidian-interop) to our own `.aimap` (JSON Canvas-derived schema, free to extend, no interop promise).
+- 2026-05-24: progress — Phase 0 8/13 exit criteria ticked off retroactively after PRs #10, #11, #12 (TS+React+Vite+Konva toolchain, UI shell, CJS-main fix). Remaining 5: lint (broken, needs ESLint flat config), 2 × Playwright e2e (not set up), 2 × end-to-end smoke verify of `npm start` and `preview:web`.

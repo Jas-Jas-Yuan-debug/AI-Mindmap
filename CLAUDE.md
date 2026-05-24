@@ -21,13 +21,16 @@ Before you do anything else — **read [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.
 - Modifies the file format, IPC contract, or Platform interface
 - Changes the directory layout
 - Marks a phase complete (update the phase header with 🟢 done + date, link to PRs)
+- **Satisfies one or more exit criteria of any in-flight phase** (tick the relevant `[ ]` → `[x]` checkboxes, append the PR number that landed it, e.g. `[x] npm run lint passes (PR #28)`)
 - Reveals that a previously locked decision was wrong (write the new decision AND a one-line "previously decided X because Y; superseded because Z")
 
-**You MAY skip a plan update only when your change is purely:** a bug fix that doesn't change behavior described in the plan, a typo, a comment-only edit, a test-only addition, or a dependency patch-version bump.
+**You MAY skip a plan update only when your change is purely:** a bug fix that doesn't change behavior described in the plan AND doesn't satisfy any open exit criterion, a typo, a comment-only edit, a test-only addition that doesn't satisfy an exit criterion, or a dependency patch-version bump.
 
 **Sequencing:** if a change is large enough to need debate (new phase, dropping a library, changing the file format), open a **plan-amendment PR first** with just the doc change. Get it merged. Then open the implementation PR referencing the now-merged plan.
 
-**Drift check:** at the start of every session, after `git pull`, skim the diff between the plan's "last updated" date and `HEAD` of `main` for any recent merges. If a merged PR changed behavior the plan describes but didn't update the plan, **your first PR of the session is the plan correction.**
+**Progress tracking — the plan is the dashboard.** Anyone reading `DEVELOPMENT_PLAN.md` should be able to see, by scanning the exit-criteria checkboxes, exactly what's shipped and what's left for the current phase. Don't let the plan say `[ ]` when reality says ✅. When ticking a box, also bump the "Last updated" footer with a one-line history entry summarizing what landed.
+
+**Drift check:** at the start of every session, after `git pull`, skim the diff between the plan's "last updated" date and `HEAD` of `main` for any recent merges. If a merged PR changed behavior the plan describes but didn't update the plan (including unticked exit criteria for shipped work), **your first PR of the session is the plan correction.**
 
 ## Tech stack
 
