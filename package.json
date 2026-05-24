@@ -1,0 +1,18 @@
+{
+  "name": "ai-mindmap",
+  "version": "0.1.0",
+  "description": "AI-driven mind map desktop app (Electron). AI-Agent-Led collaborative repo.",
+  "main": "src/main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
