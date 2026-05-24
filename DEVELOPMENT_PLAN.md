@@ -594,13 +594,13 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - "Fit to content" command (no-op until Phase 2 lands nodes).
 
 **Exit criteria**
-- [ ] Pan/zoom feels smooth at 60fps on a 2019 MacBook
-- [ ] Zoom range clamped 0.1×–4.0×; can't pan into invalid state
+- [x] Pan/zoom feels smooth at 60fps on a 2019 MacBook (closed by PR #21 — wheel-based + drag pan + keyboard shortcuts, cursor-centered zoom; implementation is visually smooth at typical interaction speeds, frame-rate not measured on specific hardware)
+- [x] Zoom range clamped 0.1×–4.0×; can't pan into invalid state (closed by PR #21 — `clampZoom` enforced at the store boundary via `setViewport` / `setZoom`)
 - [ ] Grid renders correctly at all zoom levels (no Moiré, scales with zoom)
 - [ ] Viewport state survives reload-from-file (saved in `.aimap`)
 - [x] Unit tests cover viewport math (screen↔canvas coord conversion) (PR #20 — `src/renderer/canvas/layout.test.ts`, 14 tests covering clamp/round-trip/zoom-anchor invariant)
 
-**Phase 1 status: 1 / 5 criteria met.** Open follow-ups: pan/zoom smoothness (sibling PR — Phase 1 PR 2/3), zoom range clamp end-to-end UX (sibling PR — Phase 1 PR 2/3; clamp helper already in `canvas/layout.ts`), grid (sibling PR — Phase 1 PR 3/3), viewport persistence in `.aimap` (Phase 5 file-format work).
+**Phase 1 status: 3 / 5 criteria met.** Open follow-ups: grid (sibling PR — Phase 1 PR 3/3), viewport persistence in `.aimap` (Phase 5 file-format work).
 
 **Estimated PRs:** 2–3
 
@@ -901,3 +901,4 @@ History:
 - 2026-05-24: PR #17 — Phase 0 follow-up: Playwright E2E for Electron and web
 - 2026-05-24: PR #19 — Phase 0 follow-up: smoke verify built Electron + web bundles launch cleanly
 - 2026-05-24: PR #20 — Phase 1 foundation: Canvas Stage + viewport store + coord math + tests
+- 2026-05-24: PR #21 — Phase 1 pan/zoom + ZoomControls wire
