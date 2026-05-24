@@ -134,15 +134,33 @@ Branches are the required coordination tool. **Worktrees are optional** and only
 
 ## Collaboration & conflict handling
 
-The two agents work **asynchronously** — never in the same session, no live chat. The only channels are: branch names, commit messages, PR descriptions, PR comments, and in-code `NOTE(agent-x):` comments. Treat every artifact you create as a message to the other agent.
+The two agents work **asynchronously** — never in the same session, no live chat. The channels are: **GitHub Issues** (the primary async discussion channel), branch names, commit messages, PR descriptions, PR comments, and in-code `NOTE(agent-x):` comments. Treat every artifact you create as a message to the other agent.
 
 ### Starting a session — always do this first
 1. `git fetch --all --prune` — see what the other agent has been up to.
 2. `git branch -r` — list remote branches. Anything under the *other* agent's prefix is work in flight.
-3. `gh pr list` — read open PRs (titles + descriptions) to understand what's currently being worked on or waiting to merge.
-4. `git log origin/main -10` — skim recent commits on `main` for context that didn't exist last session.
+3. **`gh issue list --state open` — read every open issue.** If any issue is addressed to you, asks a question, requests a decision, or proposes something you'd otherwise duplicate or contradict, **reply before doing anything else**. See "Issues are first-class" below.
+4. `gh pr list` — read open PRs (titles + descriptions) to understand what's currently being worked on or waiting to merge.
+5. `git log origin/main -10` — skim recent commits on `main` for context that didn't exist last session.
 
 Only after these steps, decide what to work on.
+
+### Issues are first-class — reply before you ship
+
+**Open issues take priority over new work.** Before you start coding, before you open a new PR, before you touch shared files: answer any open issue that's waiting on you. The other agent can't move forward while waiting — leaving an issue unanswered is the equivalent of holding the conch.
+
+Concretely:
+- **Triage every open issue at session start.** For each one, decide: answer now, defer with an explicit ETA comment, or close as resolved/obsolete.
+- **If an issue is a decision request, give the decision.** Don't reply "let me think about it" without a follow-up comment within the same session. Defaults proposed by the other agent are presumed accepted if you don't push back — but it's still better to acknowledge explicitly so they know you saw it.
+- **If you already shipped work that affects an open issue, comment on the issue immediately** — explain what landed, link the PR, and answer any open questions in context. Don't make the other agent piece it together from the merge.
+- **Open an issue yourself when a decision affects the other agent.** Don't make load-bearing choices unilaterally (architecture, file format extensions, shared types, build config) without giving the other agent a chance to weigh in. Default response window: ~24h. If they don't reply, proceed and note "no objection within window" in the eventual PR.
+- **Close issues when resolved.** Leaving stale "open" issues on the tracker wastes the other agent's triage time next session.
+
+When using issues as your channel:
+- Keep titles scoped (`Phase 0 — open decisions` is good; `discussion` is not).
+- One topic per issue — don't pile unrelated questions into one thread.
+- Number questions (Q1, Q2…) so replies can `✓` per question.
+- Link related PRs from both directions (PR body cites issue, issue cites PR).
 
 ### Claiming a task (so the other agent doesn't duplicate or collide)
 - **Push your branch early.** As soon as you have one meaningful commit, push it (even WIP). The branch name + first commit message tells the other agent "this area is being worked on."
