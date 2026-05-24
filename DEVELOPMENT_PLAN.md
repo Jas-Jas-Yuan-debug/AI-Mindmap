@@ -8,13 +8,13 @@
 
 ## 1. Product vision
 
-**AI-Mindmap is an AI-augmented infinite whiteboard. Files are Obsidian Canvas–compatible (`.canvas`, JSON Canvas 1.0 spec). The UI takes its visual cues from Excalidraw.**
+**AI-Mindmap is an AI-augmented infinite whiteboard. It is a single-user, standalone application with no interop with other apps. The UI takes its visual cues from Excalidraw.**
 
 Users place **cards** (text/markdown, files, links, groups) on an **infinite 2D canvas**, connect them with **labeled arrows**, and organize them with **group containers**. AI features (summarize, expand, suggest connections, generate nodes from prompts, chat-with-canvas) are layered on **after** the core whiteboard is fully usable as a standalone, AI-free tool.
 
 ### Two product anchors (decided, do not re-debate without a Plan PR)
 
-1. **File format: JSON Canvas 1.0** ([jsoncanvas.org/spec/1.0/](https://jsoncanvas.org/spec/1.0/)) — the same `.canvas` files Obsidian writes. Files round-trip between AI-Mindmap and Obsidian without loss. **Why this and not Excalidraw's format:** Excalidraw's schema is freehand-drawing-oriented (point arrays, stroke properties, scene versioning) and overkill for a node-and-edge whiteboard — adopting it would force us to invent semantics we don't need. JSON Canvas is purpose-built for exactly the model we want: typed nodes + edges + minimal styling.
+1. **File format: our own `.aimap` JSON format.** Single-app, single-user, no interop promise with any other tool. Schema is derived from JSON Canvas 1.0 because it's a sound design for typed nodes + edges, but we are **free to extend it** with bespoke top-level fields (viewport, app version, AI chat history, etc.) directly in the file. No need for sidecar files. **Why not Obsidian-compatible:** we considered adopting JSON Canvas 1.0 as-is and shipping `.canvas` files that round-trip with Obsidian, but interop adds permanent constraints (can't add useful top-level fields, can't extend node types, must run round-trip tests forever) for a use case (users editing the same file in two tools) that isn't core to our product. Dropping the interop promise simplifies the format and frees future evolution. **Why not Excalidraw's format:** Excalidraw's schema is freehand-drawing-oriented (point arrays, stroke properties, scene versioning) and overkill for a node-and-edge whiteboard.
 2. **UI design language: Excalidraw-inspired** — full-bleed canvas with floating **Island** chrome (rounded cards with the signature triple-layered soft shadow), the purple `#6965db` accent against near-white surfaces, Assistant/system-ui font, minimal toolbar + zoom controls + hamburger menu. **Why:** Excalidraw's chrome is widely loved, intuitive, and refined over years. Reusing its visual idioms gets us instant polish without copying any of its drawing-engine code (which we don't need — we're a node-edge canvas, not a freehand drawing tool).
 
 ### Platform targets
@@ -29,14 +29,21 @@ The renderer code is **platform-agnostic**. A `Platform` adapter (`src/platform/
 2. The whiteboard interactions (drag, multi-select, undo, persistence) are the hard, slow part — get them right before adding LLM complexity.
 3. AI features depend on a stable file format and node model. Defining those without a working canvas leads to retrofitting.
 
-### What we are NOT building (V1)
+### What we are NOT building — ever, not just V1
+
+The following are **explicitly removed from scope, permanently.** They are not deferred to a later phase; they are not a stretch goal; they are not "maybe one day." Do not propose them in a future PR without first opening a Plan-amendment PR that justifies un-cutting them.
+
+- **Any form of multi-user collaboration.** No real-time co-editing. No comment threads. No presence indicators. No shared cursors. No invite links. No accounts. This is a single-user tool.
+- **Interop with other apps' file formats.** Not Obsidian Canvas (`.canvas`), not Excalidraw (`.excalidraw`), not Miro, not Figma, not anything else. Our `.aimap` files are ours alone. We do not promise round-trip with any external tool. We will not implement import/export adapters for other apps.
+- **Server-side document storage / sync.** Local-first only. If a user wants to sync, they use iCloud Drive / Dropbox / a network drive on their own — we do not build, run, or integrate with any sync service.
+- **Accounts, login, telemetry.** None. The app does not phone home.
+
+### What we are NOT building in V1 (but might revisit later)
 - Native mobile apps (iOS/Android) — the web build will work on mobile browsers, but no native UI
-- Real-time multi-user collaboration
 - Plugin / extension system
 - Custom theme engine beyond dark/light
 - A built-in markdown editor outside of card content (no separate notes pane)
 - Hand-drawn freeform strokes (we're a node-and-edge whiteboard, not a drawing app)
-- Server-side document storage (local-first; user brings sync via iCloud Drive / Dropbox / Obsidian Sync)
 
 ---
 
@@ -50,7 +57,7 @@ The renderer code is **platform-agnostic**. A `Platform` adapter (`src/platform/
 6. **No secrets in renderer.** Electron: API keys live in OS keychain via main process. Web: API keys live in `sessionStorage` only (cleared on tab close) or are user-supplied per-request — never persisted to `localStorage`.
 7. **Local-first.** Files live on the user's disk (Electron) or the user's chosen folder (web, via File System Access API). No mandatory cloud, no telemetry, no account.
 8. **Types as contracts.** TypeScript strict mode. Shared types live in `src/shared/`.
-9. **JSON Canvas fidelity.** Files written by AI-Mindmap MUST be loadable in Obsidian. Files written by Obsidian MUST round-trip through AI-Mindmap losslessly (preserve unknown fields).
+9. **Single-user, standalone, no interop.** The file format is ours alone; we do not promise compatibility with Obsidian, Excalidraw, or any other tool. No multi-user features of any kind. See §1 "What we are NOT building — ever."
 10. **Plan stays current.** Any PR that changes scope, decisions, exit criteria, file format, or architecture **must update `DEVELOPMENT_PLAN.md` in the same PR.** A PR that drifts from the plan without updating it is rejected — open a plan-amendment PR first.
 
 ---
@@ -69,7 +76,7 @@ The renderer code is **platform-agnostic**. A `Platform` adapter (`src/platform/
 | UI primitives | **Custom Islands** (Excalidraw-style) — no UI kit | We want the Excalidraw look exactly; off-the-shelf kits (MUI, Chakra) would fight us |
 | Icons | **lucide-react** | MIT, tree-shakable, large set, matches our minimal aesthetic |
 | Markdown rendering | **react-markdown** + **remark-gfm** | Safe (no `dangerouslySetInnerHTML`) |
-| Persistence format | **JSON Canvas 1.0** (`.canvas` files, [spec](https://jsoncanvas.org/spec/1.0/)) | Obsidian-compatible, exactly the right model |
+| Persistence format | **`.aimap` JSON** (our own — see §5) | Single-app, free to extend; schema derived from JSON Canvas 1.0 but no interop promise |
 | Schema validation | **Zod** | Runtime validation at the file-load boundary |
 | File I/O (Electron) | Node `fs/promises` via IPC | Renderer never touches `fs` directly |
 | File I/O (web) | **File System Access API** (Chromium) + download/upload fallback | Local-first in the browser, no server needed for files |
@@ -148,9 +155,9 @@ export interface Platform {
   readonly kind: "electron" | "web";
 
   files: {
-    openCanvas(): Promise<{ handle: FileHandle; data: JSONCanvas } | null>;
-    saveCanvas(handle: FileHandle, data: JSONCanvas): Promise<void>;
-    saveCanvasAs(data: JSONCanvas, suggestedName?: string): Promise<FileHandle | null>;
+    openCanvas(): Promise<{ handle: FileHandle; data: AimapFile } | null>;
+    saveCanvas(handle: FileHandle, data: AimapFile): Promise<void>;
+    saveCanvasAs(data: AimapFile, suggestedName?: string): Promise<FileHandle | null>;
     recentFiles(): Promise<RecentFile[]>;
   };
 
@@ -227,7 +234,7 @@ AI-Mindmap/
 │   └── shared/                     # used by main, platform impls, and renderer
 │       ├── ipc.ts                  # Electron IPC channel names + payload types
 │       ├── platform.ts             # Platform interface
-│       ├── jsoncanvas.ts           # JSON Canvas 1.0 types + Zod validators
+│       ├── aimap.ts                # .aimap file format types + Zod validators (renamed from jsoncanvas.ts in Phase 5)
 │       └── types.ts                # internal canvas types (viewport, selection, etc.)
 ├── tests/
 │   ├── unit/
@@ -237,118 +244,145 @@ AI-Mindmap/
 
 ---
 
-## 5. File format — JSON Canvas 1.0 (`.canvas`)
+## 5. File format — our own `.aimap` JSON format
 
-**We adopt the [JSON Canvas 1.0 spec](https://jsoncanvas.org/spec/1.0/) exactly. Field names match the spec. Files round-trip with Obsidian losslessly.**
+**This is our format. We do not promise round-trip compatibility with any other tool.** The schema is *derived* from JSON Canvas 1.0 because it's a sound design for typed nodes + edges, but we are free to extend it — and we do, starting at the root level with our own metadata fields.
 
-This is **not** a custom format — it's the open spec maintained by the Obsidian team. We do not extend it with bespoke top-level fields in V1; anything we'd want (viewport state, app metadata, etc.) is stored OUTSIDE the `.canvas` file (e.g. in a sidecar `.canvas.aim.json` or in app settings keyed by file path). This keeps the `.canvas` file pure and interoperable.
+`.aimap` files are validated with **Zod** at the file-load boundary. Unknown fields are dropped (not preserved — there's no other tool to round-trip with).
 
-### Schema (authoritative TypeScript — paste into `src/shared/jsoncanvas.ts`)
+### Schema (authoritative TypeScript — `src/shared/aimap.ts`)
+
+The Phase 0 file is currently named `src/shared/jsoncanvas.ts` because it predates this plan amendment. Phase 5 (or any earlier PR that touches it) renames it to `aimap.ts` and applies the schema below.
 
 ```ts
 /**
- * JSON Canvas 1.0 — https://jsoncanvas.org/spec/1.0/
- * Native file format for .canvas files (Obsidian-compatible).
- * Field names MUST match the spec exactly. Do not rename.
+ * .aimap file format — our own.
+ * Single-app, single-user, no interop. Free to evolve.
  */
 
-/** Root document. Both arrays are OPTIONAL per spec. */
-export interface JSONCanvas {
-  nodes?: Node[];
-  edges?: Edge[];
+export const AIMAP_FORMAT_VERSION = 1;
+
+export interface AimapFile {
+  /** Bumped on breaking schema changes. Migrations live in src/shared/migrations/. */
+  formatVersion: 1;
+
+  /** App metadata at last save. Informational; not load-gating. */
+  meta: {
+    app: "AI-Mindmap";
+    appVersion: string;        // semver of the app that wrote the file
+    createdAt: string;         // ISO 8601
+    updatedAt: string;         // ISO 8601
+  };
+
+  /** Last-known viewport for this document. Restored on open. */
+  viewport: {
+    x: number;                 // canvas-space pan offset
+    y: number;
+    zoom: number;              // 0.1 .. 4.0
+  };
+
+  /** AI chat history attached to this document. Optional. */
+  chats?: ChatThread[];
+
+  nodes: Node[];               // required, may be empty
+  edges: Edge[];               // required, may be empty
 }
 
-/**
- * Color: either a hex string (e.g. "#FF0000") OR a preset palette index
- * "1".."6". Presets map to red/orange/yellow/green/cyan/purple, but the
- * spec deliberately does NOT fix the exact hex values — apps theme them.
- * Treat preset strings as opaque tokens on read.
- */
-export type CanvasColor = HexColor | CanvasPresetColor;
-export type HexColor = `#${string}`;                          // e.g. "#FF0000"
-export type CanvasPresetColor = "1" | "2" | "3" | "4" | "5" | "6";
+/** Color: hex string OR a preset palette index "1".."6". Same convention as JSON Canvas. */
+export type Color = HexColor | PresetColor;
+export type HexColor = `#${string}`;
+export type PresetColor = "1" | "2" | "3" | "4" | "5" | "6";
 //  "1" red | "2" orange | "3" yellow | "4" green | "5" cyan | "6" purple
 
-/** Fields shared by every node. */
 export interface NodeBase {
-  id: string;            // required, unique
-  type: NodeType;        // required
-  x: number;             // required, integer, pixels (+x right)
-  y: number;             // required, integer, pixels (+y down)
-  width: number;         // required, integer, pixels
-  height: number;        // required, integer, pixels
-  color?: CanvasColor;
+  id: string;            // required, unique within the file (uuid v4)
+  type: NodeType;
+  x: number;             // integer pixels, +x right
+  y: number;             // integer pixels, +y down
+  width: number;
+  height: number;
+  color?: Color;
+  parentId?: string;     // id of containing GroupNode, if any (our extension)
 }
 
-export type NodeType = "text" | "file" | "link" | "group";
+export type NodeType = "text" | "file" | "link" | "image" | "group";
 
 export interface TextNode extends NodeBase {
   type: "text";
-  text: string;          // required; Markdown
+  text: string;          // Markdown
 }
 
 export interface FileNode extends NodeBase {
   type: "file";
-  file: string;          // required; path relative to vault root (Obsidian) or document folder (us)
-  subpath?: string;      // optional; heading anchor or block ref. MUST start with "#"
+  file: string;          // document-folder-relative path
+  displayName?: string;
 }
 
 export interface LinkNode extends NodeBase {
   type: "link";
-  url: string;           // required
+  url: string;
+  title?: string;
+  favicon?: string;      // data URL or cached path
+}
+
+export interface ImageNode extends NodeBase {
+  type: "image";
+  file: string;          // document-folder-relative path inside <file>.aimap.assets/
+  alt?: string;
 }
 
 export interface GroupNode extends NodeBase {
   type: "group";
   label?: string;
-  background?: string;                       // optional; path to bg image
-  backgroundStyle?: GroupBackgroundStyle;
+  collapsed?: boolean;
 }
-export type GroupBackgroundStyle = "cover" | "ratio" | "repeat";
 
-export type Node = TextNode | FileNode | LinkNode | GroupNode;
+export type Node = TextNode | FileNode | LinkNode | ImageNode | GroupNode;
 
-/** Edge between two nodes. */
 export interface Edge {
-  id: string;                  // required, unique
-  fromNode: string;            // required; references Node.id
-  toNode: string;              // required; references Node.id
+  id: string;
+  fromNode: string;
+  toNode: string;
   fromSide?: EdgeSide;
   toSide?: EdgeSide;
-  fromEnd?: EdgeEnd;           // default "none"
-  toEnd?: EdgeEnd;             // default "arrow"
-  color?: CanvasColor;
+  fromEnd?: EdgeEnd;     // default "none"
+  toEnd?: EdgeEnd;       // default "arrow"
+  color?: Color;
   label?: string;
 }
 export type EdgeSide = "top" | "right" | "bottom" | "left";
 export type EdgeEnd  = "none" | "arrow";
+
+export interface ChatThread {
+  id: string;
+  createdAt: string;
+  messages: { role: "user" | "assistant"; content: string; ts: string }[];
+}
 ```
 
-### Spec rules we must honor
+### Format rules
 
-- **No `version` field at root.** The spec is externally versioned (1.0, 2024-03-11). If JSON Canvas 2.0 ships, we'll add a migration path. Today, no version field.
+- **`formatVersion` is the migration anchor.** Bump it when a breaking change lands; ship a migration in `src/shared/migrations/v<N>-to-v<N+1>.ts`. Older versions migrate forward on open; newer versions refuse to open with a clear error.
 - **Z-order is array order.** `nodes[0]` renders bottom, `nodes[length-1]` renders top. Preserve order on save.
-- **Coordinates are integer pixels, +x right, +y down.** Match Obsidian's convention so files don't appear shifted when opened there.
-- **Color values: write presets when possible.** If the user picked a swatch from our palette, write the preset string `"1"`–`"6"` so other apps can re-theme. Only write hex when the user picked a custom color.
-- **Preserve unknown fields on round-trip.** Any field we don't recognize must survive a load → edit → save cycle. Implement this with a "passthrough" pattern in the Zod schema.
-- **Edge defaults: `fromEnd: "none"`, `toEnd: "arrow"`.** An edge with neither field set is a one-way arrow from `fromNode` to `toNode`.
-- **`FileNode.file` paths are relative.** Obsidian uses vault-root-relative. We use document-folder-relative (the folder containing the `.canvas`). Convert absolute paths to relative on save.
-
-### How we store things JSON Canvas doesn't cover
-
-The spec is intentionally minimal. We need a few things it doesn't define (viewport state, recent-file metadata, app-internal flags). Storage strategy:
-
-| What | Where | Why not in `.canvas` |
-|---|---|---|
-| Viewport (pan/zoom) | App settings, keyed by file path | Spec has no viewport field; pure files keep interop clean |
-| AI chat history per file | Sidecar `<file>.canvas.aim.json` next to the `.canvas` | Could be large, not Obsidian-relevant |
-| Recent files list | App settings | Per-user, not per-document |
-| App version that last opened | App settings | Telemetry-ish, not a file concern |
+- **Coordinates are integer pixels, +x right, +y down.** Same convention everywhere.
+- **Color values: write presets when possible.** If the user picked a swatch from our palette, write `"1"`–`"6"` so a future theme change re-themes existing files automatically. Hex only when the user picked a custom color.
+- **Edge defaults: `fromEnd: "none"`, `toEnd: "arrow"`.** An edge with neither end field is a one-way arrow.
+- **`FileNode.file` / `ImageNode.file` paths are relative** to the folder containing the `.aimap` file. Convert absolute paths on save. Images are copied into `<filename>.aimap.assets/` next to the document on import.
+- **Unknown fields are dropped on save.** No round-trip preservation — we have no external tool to round-trip with.
+- **File extension: `.aimap`.** MIME type: `application/json` over HTTP; internally treated as our own type.
 
 ### Minimal valid file (for tests)
 
 ```json
 {
+  "formatVersion": 1,
+  "meta": {
+    "app": "AI-Mindmap",
+    "appVersion": "0.1.0",
+    "createdAt": "2026-05-24T08:00:00Z",
+    "updatedAt": "2026-05-24T08:00:00Z"
+  },
+  "viewport": { "x": 0, "y": 0, "zoom": 1 },
   "nodes": [
     { "id": "a", "type": "text", "x": 0,   "y": 0, "width": 240, "height": 80, "text": "# Hello" },
     { "id": "b", "type": "link", "x": 320, "y": 0, "width": 240, "height": 80, "url": "https://anthropic.com", "color": "5" }
@@ -359,10 +393,8 @@ The spec is intentionally minimal. We need a few things it doesn't define (viewp
 }
 ```
 
-### Interop tests (required in Phase 5)
-- Open a `.canvas` file generated by Obsidian → render correctly, all fields preserved.
-- Save a file we created → open it in Obsidian → renders correctly.
-- Round-trip with unknown extra fields → fields survive.
+### Phase 5 file rename
+The Phase 0 module is currently `src/shared/jsoncanvas.ts` with the now-superseded JSON Canvas 1.0 schema. Phase 5 (or any earlier PR that touches it) renames the module to `src/shared/aimap.ts`, replaces the schema with the `AimapFile` definition above (adding `formatVersion`, `meta`, `viewport`, and `chats` at root, plus the `ImageNode` type and `parentId` on `NodeBase`), and writes the Zod validators. Whoever takes that phase should also update `src/shared/platform.ts` — the `files` methods already reference `AimapFile` here in the plan, so the rename brings code in line with the spec.
 
 ---
 
@@ -481,7 +513,7 @@ export function Island({ children, className }: PropsWithChildren<{ className?: 
 
 - The drawing engine, shape primitives, freehand stroke logic — not relevant to a node-edge canvas.
 - Their library/templates panel — different product.
-- Their collaborator avatars/multiplayer UI — out of scope for V1.
+- Their collaborator avatars/multiplayer UI — permanently out of scope (see §1).
 - Hand-drawn fonts (Virgil, Excalifont) — our cards render Markdown in a normal font.
 
 ### Reference implementations (for layout, not code-copying)
@@ -563,7 +595,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [ ] Pan/zoom feels smooth at 60fps on a 2019 MacBook
 - [ ] Zoom range clamped 0.1×–4.0×; can't pan into invalid state
 - [ ] Grid renders correctly at all zoom levels (no Moiré, scales with zoom)
-- [ ] Viewport state survives reload-from-file (saved in `.aimap.json`)
+- [ ] Viewport state survives reload-from-file (saved in `.aimap`)
 - [ ] Unit tests cover viewport math (screen↔canvas coord conversion)
 
 **Estimated PRs:** 2–3
@@ -648,7 +680,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 **Deliverables**
 - File menu: New, Open, Save, Save As, Recent Files.
 - IPC channels: `files:open`, `files:save`, `files:saveAs`, `files:recent`.
-- Open dialog filtered to `.aimap.json`.
+- Open dialog filtered to `.aimap`.
 - Save validates the document against Zod schema before writing.
 - Autosave to the currently-open file after every committed action, debounced 1s.
 - Dirty indicator in title bar (`AI-Mindmap — Untitled •` when unsaved).
@@ -668,7 +700,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 ---
 
 ### Phase 6 — Groups / containers
-**Goal:** Obsidian Canvas-style group boxes that contain other nodes.
+**Goal:** group boxes that contain other nodes (parented children move with their group).
 
 **Deliverables**
 - `GroupNode` type: titled rectangle, larger min size.
@@ -734,7 +766,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 
 ### 🎉 Whiteboard Milestone — End of Phase 8
 
-**At this point the app is a fully functional Obsidian-Canvas-style whiteboard with no AI features.** It should be usable as a daily driver for visual thinking. Tag the repo `v0.1.0-whiteboard` here.
+**At this point the app is a fully functional node-and-edge infinite whiteboard with no AI features.** It should be usable as a daily driver for visual thinking. Tag the repo `v0.1.0-whiteboard` here.
 
 The remaining phases add AI on top of a stable foundation.
 
@@ -790,7 +822,7 @@ Each sub-phase is independently shippable.
 
 **Deliverables**
 - Collapsible right-side panel with chat UI.
-- Conversation state per-document (saved in `.aimap.json` under `meta.chats`? — decide via PR).
+- Conversation state per-document (saved in `.aimap` under `meta.chats`? — decide via PR).
 - User message can `@`-mention nodes by name; mentioned nodes' content passed as context.
 - AI responses can include "actions" (e.g. create node, link nodes) the user approves with one click.
 - Streaming response rendering.
@@ -805,14 +837,17 @@ Each sub-phase is independently shippable.
 
 ---
 
-### Phase 12 (stretch — explicitly out of scope for V1)
-- Real-time collaboration (CRDT, WebRTC, sync server)
+### Phase 12 (stretch — out of scope for V1, but allowed later)
 - Plugin API
 - Mobile companion app
-- Cloud sync
 - Vector database for semantic search across many documents
 
 If we get here, open a new planning doc — don't try to retrofit into this one.
+
+**Permanently out (see §1, do not propose without amending §1 first):**
+- Real-time collaboration (CRDT / WebRTC / shared cursors / comments / accounts)
+- Cloud sync / server-side document storage
+- Import/export interop with other apps (Obsidian Canvas, Excalidraw, Miro, Figma, etc.)
 
 ---
 
@@ -851,4 +886,9 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-24 (initial version)
+Last updated: 2026-05-24
+
+History:
+- 2026-05-24: initial version
+- 2026-05-24: amendment — multi-platform (Electron + Web), JSON Canvas 1.0 file format, Excalidraw-inspired UI
+- 2026-05-24: amendment — DROPPED multi-user collaboration (any form, permanently) and DROPPED interop with other apps (Obsidian Canvas / Excalidraw / Miro / Figma — permanently). File format switched from `.canvas` (JSON Canvas 1.0 spec, Obsidian-interop) to our own `.aimap` (JSON Canvas-derived schema, free to extend, no interop promise).
