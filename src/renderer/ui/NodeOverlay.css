@@ -1,0 +1,156 @@
+/* Per-node HTML overlay — sits over the Konva card and renders either the
+ * markdown view (read mode) or a textarea (edit mode). Positioning is
+ * driven by inline style props (left/top/width/height in screen pixels)
+ * computed in NodeOverlayLayer.tsx from canvasToScreen(viewport).
+ *
+ * In READ mode the wrapper has `pointer-events: none` so every DOM event
+ * (mousedown for selection/drag, dblclick, contextmenu) passes through to
+ * the underlying Konva Stage. NodeOverlayLayer attaches window-level
+ * dblclick + contextmenu listeners that hit-test against node rects to
+ * decide whether to enter edit mode or open the color picker — that lets
+ * us avoid stealing any clicks from Konva's drag/select machinery.
+ *
+ * In EDIT mode the overlay re-enables pointer events on the textarea so
+ * the user can type. The Konva card stays painted underneath but Konva
+ * drag is suppressed via TextNode's `draggable` prop honoring the same
+ * "currently editing this card" check (Phase 4 will tighten this). */
+
+.aim-node-overlay {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  font-family: var(--aim-font-ui);
+  color: var(--aim-color-text);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.aim-node-overlay__read {
+  position: absolute;
+  inset: 0;
+  padding: 8px 12px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Light typographic styling so cards look reasonable out of the box.
+ * Excalidraw-inspired: small font, tight headings, monospace for code. */
+.aim-node-overlay__read h1,
+.aim-node-overlay__read h2,
+.aim-node-overlay__read h3,
+.aim-node-overlay__read h4,
+.aim-node-overlay__read h5,
+.aim-node-overlay__read h6 {
+  margin: 0.25em 0 0.15em 0;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.aim-node-overlay__read h1 {
+  font-size: 1.25em;
+}
+.aim-node-overlay__read h2 {
+  font-size: 1.15em;
+}
+.aim-node-overlay__read h3 {
+  font-size: 1.05em;
+}
+
+.aim-node-overlay__read p {
+  margin: 0.2em 0;
+}
+
+.aim-node-overlay__read ul,
+.aim-node-overlay__read ol {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+
+.aim-node-overlay__read li {
+  margin: 0.05em 0;
+}
+
+.aim-node-overlay__read code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--aim-color-surface-high);
+  padding: 0 0.25em;
+  border-radius: 3px;
+}
+
+.aim-node-overlay__read pre {
+  background: var(--aim-color-surface-high);
+  padding: 0.5em 0.65em;
+  border-radius: 4px;
+  overflow: auto;
+  margin: 0.3em 0;
+}
+
+.aim-node-overlay__read pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.aim-node-overlay__read a {
+  color: var(--aim-color-primary);
+  text-decoration: underline;
+  /* Re-enable pointer events for links so the user can click them. Konva
+   * would otherwise eat the click. Tradeoff: a link inside a card means
+   * left-clicking that pixel won't fall through to the card-select path.
+   * Acceptable for V1 — the alternative is more complex hit-routing. */
+  pointer-events: auto;
+}
+
+.aim-node-overlay__read img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.aim-node-overlay__read blockquote {
+  margin: 0.3em 0;
+  padding-left: 0.6em;
+  border-left: 3px solid var(--aim-color-border);
+  color: var(--aim-color-text-muted);
+}
+
+.aim-node-overlay__read table {
+  border-collapse: collapse;
+  margin: 0.3em 0;
+}
+
+.aim-node-overlay__read th,
+.aim-node-overlay__read td {
+  border: 1px solid var(--aim-color-border);
+  padding: 0.2em 0.5em;
+  text-align: left;
+}
+
+/* Edit mode: a textarea filling the card. pointer-events: auto so the user
+ * can type. Konva's card stays painted underneath; the textarea sits on
+ * top of it and reads as the card's interior. */
+.aim-node-overlay__edit {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  padding: 8px 12px;
+  margin: 0;
+  border: none;
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: -2px;
+  background: transparent;
+  color: var(--aim-color-text);
+  font-family: var(--aim-font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  resize: none;
+  box-sizing: border-box;
+  border-radius: 12px;
+}
+
+.aim-node-overlay__edit:focus {
+  outline: 2px solid var(--aim-color-primary);
+}

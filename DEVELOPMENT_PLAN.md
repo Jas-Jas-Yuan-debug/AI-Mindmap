@@ -621,14 +621,16 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - Single-card color: right-click → color picker (8-color palette).
 - Zustand `nodes` slice with `addNode`, `updateNode`, `deleteNode`, `moveNode`, `resizeNode` actions.
 
-**Phase 2 status: 2 / 6 criteria met.** Open follow-ups: edit-textarea alignment (sibling PR), markdown rendering (sibling PR). Deferred to Phase 5: round-trip save/load preserves text card fields; E2E test for create→edit→save→reload.
+**Phase 2 status: 4 / 6 criteria met.** Deferred to Phase 5: round-trip save/load preserves text card fields; E2E test for create→edit→save→reload.
 
 Phase 2 PR 2 (move/resize/delete/create-on-double-click) added: drag-to-move on the card body, 8-handle resize with min-size clamping, Delete/Backspace removes selected cards, double-click-empty creates a new TextNode at the cursor (and arms a pending-edit handshake on the selection store for sibling C's overlay). Dev helper `window.__aimPushCards(n)` lets the user manually verify pan/zoom smoothness with 100 cards on screen; `tests/unit/perf-100-cards.test.ts` is the CI machinery proxy.
 
+Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLayer sandwiched between Canvas and Chrome: per-node overlays compute screen-space rects via `canvasToScreen` and subscribe to the viewport store so the textarea / markdown view stay aligned during pan + zoom. Double-click on a card overlay enters edit-mode (textarea, focus + select-all, Esc cancels, blur/Cmd+Enter commits). Right-click opens a 7-swatch color picker (default + 6 presets from `PRESET_COLOR_MAP`) that calls `updateNode(id, { color })`. The overlay also consumes sibling B's `pendingEditId` handshake to auto-open the textarea on freshly created cards.
+
 **Exit criteria**
 - [x] Create 100 cards, no visible lag during pan/zoom (closed by PR #24 — store-level insertion of 100 nodes under 200ms in `tests/unit/perf-100-cards.test.ts`; manual visual smoothness check available in dev via `window.__aimPushCards(100)`)
-- [ ] Edit-mode textarea always aligns with the Konva node (zoom + pan synced)
-- [ ] Markdown renders: headers, lists, bold/italic, code blocks, links, inline images via URL
+- [x] Edit-mode textarea always aligns with the Konva node (zoom + pan synced) (closed by PR #25 — HTML NodeOverlayLayer positions overlays via canvasToScreen and subscribes to the viewport store, so the textarea / read-mode view track pan and zoom in real time)
+- [x] Markdown renders: headers, lists, bold/italic, code blocks, links, inline images via URL (closed by PR #25 — react-markdown + remark-gfm render the TextNode body in the read-mode overlay; no dangerouslySetInnerHTML)
 - [ ] Round-trip save/load preserves every text card field
 - [x] Unit tests for node store actions (closed by PR #23 — nodes.test.ts)
 - [ ] E2E test: create card, edit it, save file, reload, content preserved
@@ -909,3 +911,4 @@ History:
 - 2026-05-24: PR #22 — Phase 1 grid + status bar + view toggle + fit-to-content
 - 2026-05-24: PR #23 — Phase 2 foundation: nodes + selection stores + TextNode renderer + select interaction + tests
 - 2026-05-24: PR #24 — Phase 2 (PR 2/3): move + resize + delete + create-on-double-click + 100-card perf sanity
+- 2026-05-24: PR #25 — Phase 2 (PR 3/3): edit-mode + markdown + color picker
