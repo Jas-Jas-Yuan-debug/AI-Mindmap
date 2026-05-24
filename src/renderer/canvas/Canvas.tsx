@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { Layer, Stage } from "react-konva";
+import type { KonvaEventObject } from "konva/lib/Node";
 import { useViewport } from "../store/viewport.js";
 import { Origin } from "./Origin.js";
+import { usePan } from "./interactions/usePan.js";
+import { useZoom } from "./interactions/useZoom.js";
 
 // The viewport-driven Konva Stage. Owns its own size (responsive to window
 // resize) and reads pan/zoom from the Zustand viewport store. Phase 1 PR 1
-// renders only the Origin debug crosshair inside; pan/zoom interactions
-// (PR 2) and grid (PR 3) will add more layers/handlers later.
+// renders only the Origin debug crosshair inside; PR 2 wires the pan/zoom
+// interaction hooks (this file); PR 3 will add the grid layer.
 
 function useStageSize() {
   const [size, setSize] = useState(() => ({
@@ -28,6 +31,15 @@ export function Canvas() {
   const y = useViewport((s) => s.y);
   const zoom = useViewport((s) => s.zoom);
 
+  const pan = usePan();
+  const zoomI = useZoom();
+
+  // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
+  const onWheel = (e: KonvaEventObject<WheelEvent>) => {
+    if (zoomI.onWheel(e)) return;
+    pan.onWheel(e);
+  };
+
   return (
     <Stage
       width={width}
@@ -36,7 +48,12 @@ export function Canvas() {
       y={y}
       scaleX={zoom}
       scaleY={zoom}
-      style={{ background: "var(--aim-color-canvas-bg)" }}
+      style={{ background: "var(--aim-color-canvas-bg)", cursor: pan.cursor }}
+      onMouseDown={pan.onMouseDown}
+      onMouseMove={pan.onMouseMove}
+      onMouseUp={pan.onMouseUp}
+      onMouseLeave={pan.onMouseLeave}
+      onWheel={onWheel}
     >
       <Layer>
         <Origin />
