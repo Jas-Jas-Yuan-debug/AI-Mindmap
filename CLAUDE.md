@@ -1,5 +1,49 @@
 # AI-Mindmap
 
+## Tech stack
+
+This is an **Electron desktop application** (Chromium renderer + Node.js main process).
+
+### Layout
+
+```
+AI-Mindmap/
+├── package.json              # entry: src/main/main.js, scripts.start = "electron ."
+├── src/
+│   ├── main/
+│   │   ├── main.js           # main process: app lifecycle, BrowserWindow
+│   │   └── preload.js        # contextBridge — exposes safe APIs to renderer
+│   └── renderer/
+│       ├── index.html        # main UI document, loaded by BrowserWindow
+│       ├── renderer.js       # renderer-side logic
+│       └── style.css
+├── assets/                   # icons, static images (created when needed)
+└── CLAUDE.md
+```
+
+### Security defaults (do not relax without coordination)
+
+`BrowserWindow.webPreferences`:
+- `contextIsolation: true`
+- `nodeIntegration: false`
+- `sandbox: true`
+- `preload: path.join(__dirname, 'preload.js')`
+
+Any renderer ↔ main IPC goes through `contextBridge.exposeInMainWorld` in preload + `ipcMain.handle` in main. The renderer must never `require('electron')`.
+
+### Running locally
+
+```
+npm install
+npm start          # launches Electron
+```
+
+Node ≥ 18 recommended (matches current Electron toolchain).
+
+### Build / packaging
+
+Not wired up yet. When we add it, prefer `electron-builder` and put output under `dist/` (already gitignored). Coordinate before introducing any packager — it touches `package.json` and CI.
+
 ## Repository access
 
 The user (GitHub: `jonzhucom`) is a **collaborator** on this repository, not the owner.
