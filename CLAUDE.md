@@ -85,6 +85,86 @@ Only after these steps, decide what to work on.
 - **When unsure who's right, don't guess.** Leave the conflict markers in place, push the branch, and open a comment on the PR explaining the conflict. The other agent (or a follow-up session) decides.
 - **Document non-obvious resolutions** in the merge commit body: what was conflicting, what you chose, why.
 
+### Conflict scenarios — what to do in each
+
+Before you start resolving, **identify which scenario you're in.** The right action differs.
+
+#### Scenario A: different files
+You changed `parser.py`, the other agent changed `render.py`. Git auto-merges — no action needed.
+
+#### Scenario B: same file, different lines
+You changed line 100 of `app.py`, the other agent changed line 10. Git auto-merges during rebase. Just run:
+
+```
+git fetch origin
+git rebase origin/main
+git push --force-with-lease    # rewriting your branch's history, safe because no one else is on it
+```
+
+#### Scenario C: same file, same lines (real conflict)
+Git stops mid-rebase and marks the file with conflict markers:
+
+```
+<<<<<<< HEAD
+print("hello")       # the other agent's version (currently on main)
+=======
+print("hi")          # your version
+>>>>>>> your-branch
+```
+
+Resolution steps:
+
+```
+# 1. Open the file. Pick one side, combine both, or write something new.
+#    Delete ALL of <<<<<<<, =======, >>>>>>> markers.
+
+# 2. Mark the file resolved
+git add path/to/file.py
+
+# 3. Continue the rebase
+git rebase --continue
+
+# 4. Repeat if more conflicts surface
+# 5. Push with --force-with-lease (history was rewritten)
+git push --force-with-lease
+```
+
+If the rebase gets out of hand or you picked wrong:
+
+```
+git rebase --abort    # safe escape — back to where you started
+```
+
+Then think again, or comment on the PR asking the other agent for input.
+
+#### Scenario D: both agents currently have an open PR touching the same file
+**Stop before you write code.** This is the worst case and the easiest to prevent.
+
+Detect it at session start:
+```
+git fetch --all --prune
+gh pr list --state open
+# For each open PR, check the files it touches:
+gh pr view <N> --json files -q '.files[].path'
+```
+
+If the other agent's open PR touches a file you planned to edit:
+1. Don't start your edit.
+2. Comment on their PR: "I was going to change X in this file too — should I wait, or do you want me to take over?"
+3. Wait for resolution (or, if the other agent is offline and you can't wait, take over their branch and finish the work yourself, crediting them in the commit).
+
+#### Quick decision tree
+
+```
+Did you both edit the same file?
+├─ No  → Scenario A. Git handles it.
+└─ Yes → Is the other agent's PR already merged to main?
+         ├─ Yes → Same lines?
+         │        ├─ No  → Scenario B. git rebase origin/main, done.
+         │        └─ Yes → Scenario C. Resolve markers, git add, git rebase --continue.
+         └─ No  → Scenario D. STOP. Coordinate via PR comment before writing more code.
+```
+
 ### Communication patterns (use these explicitly)
 
 | Situation | Channel | Format |
