@@ -1,0 +1,62 @@
+.aim-island {
+  background: var(--aim-color-island-bg);
+  border-radius: var(--aim-border-radius);
+  box-shadow: var(--aim-shadow-island);
+  padding: var(--aim-gap-sm);
+  pointer-events: auto;
+  color: var(--aim-color-text);
+  font-family: var(--aim-font-ui);
+  transition: box-shadow var(--aim-transition-shadow);
+  display: flex;
+  align-items: center;
+  gap: var(--aim-gap-sm);
+}
+
+.aim-island--row > * {
+  display: inline-flex;
+}
+
+/* Button used inside Islands (toolbar items, zoom controls, etc.) */
+.aim-icon-button {
+  width: var(--aim-button-size);
+  height: var(--aim-button-size);
+  border: none;
+  border-radius: var(--aim-border-radius-md);
+  background: transparent;
+  color: var(--aim-color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--aim-transition-state);
+  font-family: inherit;
+  font-size: var(--aim-icon-size);
+  padding: 0;
+}
+
+.aim-icon-button:hover {
+  background: var(--aim-color-surface-high);
+}
+
+.aim-icon-button[aria-pressed="true"],
+.aim-icon-button.aim-icon-button--active {
+  background: var(--aim-color-primary-light);
+  color: var(--aim-color-primary);
+}
+
+.aim-icon-button:focus-visible {
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: 2px;
+}
+
+.aim-icon-button--lg {
+  width: var(--aim-button-size-lg);
+  height: var(--aim-button-size-lg);
+}
+
+.aim-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--aim-color-surface-high);
+  margin: 0 var(--aim-gap-sm);
+}

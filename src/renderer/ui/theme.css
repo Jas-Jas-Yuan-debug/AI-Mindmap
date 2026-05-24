@@ -1,0 +1,90 @@
+/* Design tokens — Excalidraw-inspired. See DEVELOPMENT_PLAN.md §5b. */
+
+:root {
+  /* Accent */
+  --aim-color-primary: #6965db;
+  --aim-color-primary-hover: #5753d0;
+  --aim-color-primary-light: #e3e2fe;
+
+  /* Surfaces (light) */
+  --aim-color-canvas-bg: #ffffff;
+  --aim-color-island-bg: #ffffff;
+  --aim-color-surface-high: #f1f0ff;
+  --aim-color-text: #1b1b1f;
+  --aim-color-text-muted: #6b6b75;
+  --aim-color-border: #767680;
+
+  /* Danger */
+  --aim-color-danger: #db6965;
+
+  /* Sizing */
+  --aim-button-size: 2rem;
+  --aim-button-size-lg: 2.25rem;
+  --aim-icon-size: 1rem;
+  --aim-border-radius: 0.5rem;
+  --aim-border-radius-md: 0.375rem;
+  --aim-container-padding: 1rem;
+  --aim-gap-sm: 0.25rem;
+  --aim-gap: 0.5rem;
+
+  /* The Excalidraw signature triple shadow */
+  --aim-shadow-island:
+    0px 0px 1px 0px rgba(0, 0, 0, 0.17),
+    0px 0px 3px 0px rgba(0, 0, 0, 0.08),
+    0px 7px 14px 0px rgba(0, 0, 0, 0.05);
+
+  /* Type */
+  --aim-font-ui:
+    "Assistant", system-ui, BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* Transitions */
+  --aim-transition-shadow: 0.5s ease-in-out;
+  --aim-transition-state: all 0.2s ease;
+
+  /* Z layers */
+  --aim-z-chrome: 100;
+}
+
+[data-theme="dark"] {
+  --aim-color-primary: #a8a5ff;
+  --aim-color-primary-hover: #bbb8ff;
+  --aim-color-primary-light: #393846;
+  --aim-color-canvas-bg: #121212;
+  --aim-color-island-bg: #232329;
+  --aim-color-surface-high: #2e2d39;
+  --aim-color-text: #e3e3e8;
+  --aim-color-text-muted: #98979f;
+  --aim-color-border: #8e8d9c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --aim-color-primary: #a8a5ff;
+    --aim-color-primary-hover: #bbb8ff;
+    --aim-color-primary-light: #393846;
+    --aim-color-canvas-bg: #121212;
+    --aim-color-island-bg: #232329;
+    --aim-color-surface-high: #2e2d39;
+    --aim-color-text: #e3e3e8;
+    --aim-color-text-muted: #98979f;
+    --aim-color-border: #8e8d9c;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--aim-color-canvas-bg);
+  color: var(--aim-color-text);
+  font-family: var(--aim-font-ui);
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}

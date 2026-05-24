@@ -4,6 +4,7 @@ import App from "./App.js";
 import { electronPlatform } from "../platform/electron.js";
 import { webPlatform } from "../platform/web.js";
 import type { Platform } from "../shared/platform.js";
+import "./ui/theme.css";
 
 declare global {
   // Set by preload.ts (Electron) via contextBridge. Undefined on web.

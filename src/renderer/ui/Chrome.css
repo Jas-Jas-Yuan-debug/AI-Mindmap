@@ -1,0 +1,49 @@
+.aim-chrome {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--aim-container-padding);
+  z-index: var(--aim-z-chrome);
+}
+
+.aim-chrome__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--aim-gap);
+}
+
+.aim-chrome__row--bottom {
+  align-items: flex-end;
+}
+
+.aim-chrome__col {
+  display: flex;
+  align-items: center;
+}
+
+.aim-chrome__col--center {
+  flex: 1;
+  justify-content: center;
+}
+
+.aim-chrome__col--start {
+  justify-content: flex-start;
+}
+
+.aim-chrome__col--end {
+  justify-content: flex-end;
+}
+
+.aim-chrome__col--gap {
+  gap: var(--aim-gap);
+}
+
+@media (max-width: 640px) {
+  .aim-chrome {
+    padding: calc(var(--aim-container-padding) * 0.75);
+  }
+}
