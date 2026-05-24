@@ -1,0 +1,75 @@
+/* Edge label badge styling — sits centered on the Bezier midpoint and
+ * mirrors the Island look-and-feel (subtle surface, small radius, faint
+ * shadow) so it reads as floating chrome rather than canvas content.
+ *
+ * Read mode: pill-shaped badge with the label text. Pointer events stay
+ * off so a left-click falls through to the underlying Konva edge (sibling
+ * C's edge-selection PR will own that interaction).
+ *
+ * Edit mode: a one-row textarea with the same pill outline; pointer-events
+ * are on so the user can type, focus + select-all the existing label, and
+ * Esc-to-cancel / Enter-to-commit.
+ */
+
+.aim-edge-label-layer {
+  /* Wrapper itself catches no events; the window-level dblclick listener
+   * does midpoint hit-testing for edit mode. */
+  pointer-events: none;
+}
+
+.aim-edge-label {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Read-mode badge has no pointer events; edit-mode textarea overrides. */
+  pointer-events: none;
+  font-family: var(--aim-font-ui);
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--aim-color-text);
+  background: var(--aim-color-surface);
+  border: 1px solid var(--aim-color-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  /* Don't let very long labels grow the badge past the viewport. */
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.aim-edge-label__text {
+  display: inline-block;
+  /* Mirror the parent's text overflow handling — single-line ellipsis. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aim-edge-label__edit {
+  /* Re-enable pointer events so the textarea is typeable. */
+  pointer-events: auto;
+  font-family: var(--aim-font-ui);
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--aim-color-text);
+  background: var(--aim-color-surface);
+  border: none;
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: -2px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin: 0;
+  width: 160px;
+  min-width: 60px;
+  max-width: 240px;
+  resize: none;
+  text-align: center;
+}
+
+.aim-edge-label__edit:focus {
+  outline: 2px solid var(--aim-color-primary);
+}

@@ -652,6 +652,8 @@ Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLay
 - Edge color: right-click → palette.
 - Zustand `edges` slice; mutations bound to history.
 
+**Phase 3 status block:** drag-to-connect + edge label edit closed by PR #PHASE_3_PR_2_NUMBER (Phase 3 PR 2). Adds the `useDrawEdge` hook (mousedown on an anchor dot → ghost Bezier follows cursor → snap on hover within 30 canvas px of another card's anchor → commit on mouseup), the `EdgeDraft` ghost renderer (dashed when not snapped, solid when snapped), and an `EdgeLabelOverlayLayer` HTML layer sandwiched between Canvas and Chrome (pill-shaped read-mode badge at the Bezier midpoint, dblclick → textarea, Enter/blur commits, Esc cancels, trimmed-empty clears the field).
+
 **Exit criteria**
 - [ ] 100 cards × 200 edges renders at 60fps during pan/zoom
 - [x] Edges never visually disconnect from their anchors during card move/resize/zoom (closed by PR #26 — Edge.tsx subscribes to useNodes; geometry recomputed reactively on every node store change)
@@ -915,3 +917,4 @@ History:
 - 2026-05-24: PR #24 — Phase 2 (PR 2/3): move + resize + delete + create-on-double-click + 100-card perf sanity
 - 2026-05-24: PR #25 — Phase 2 (PR 3/3): edit-mode + markdown + color picker
 - 2026-05-24: PR #26 — Phase 3 (PR 1/3): edges store + Bezier renderer + AnchorDots + geometry + cascade delete + tests
+- 2026-05-24: PR #PHASE_3_PR_2_NUMBER — Phase 3 drag-to-connect from anchor + edge label inline edit
