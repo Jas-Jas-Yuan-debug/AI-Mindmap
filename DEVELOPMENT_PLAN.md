@@ -562,8 +562,8 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 **Exit criteria**
 - [x] `npm run dev:electron` opens the desktop app with the React+Konva root rect (PR #10 set up, PR #12 fixed CJS-main crash; Electron process verified alive)
 - [x] `npm run dev:web` serves a browser version with the same React+Konva root rect at `http://localhost:5173` (PR #10; visually verified via preview MCP in PR #11)
-- [ ] `npm run build:electron && npm start` runs the packaged desktop app (build verified, end-to-end `npm start` launch not yet smoke-checked)
-- [ ] `npm run build:web && npm run preview:web` serves the production web bundle (build verified, preview not yet smoke-checked)
+- [x] `npm run build:electron && npm start` runs the packaged desktop app (verified in PR #19, 2026-05-24T09:45:00Z; 4 Electron processes alive — main + GPU helper + network utility + renderer — clean SIGTERM shutdown, no stderr errors)
+- [x] `npm run build:web && npm run preview:web` serves the production web bundle (verified in PR #19, 2026-05-24T09:45:00Z; HTTP 200 at localhost:4173, served HTML contains `<title>AI-Mindmap</title>` plus module/css tags into `/assets/`)
 - [x] `npm run typecheck` passes with zero errors (PR #10)
 - [x] `npm run lint` passes (closed by PR #18 — ESLint 9 flat config migration)
 - [x] One Vitest unit test passes (`tests/unit/smoke.test.ts`, PR #10)
@@ -574,8 +574,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [x] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target (PR #8 plan amendment)
 - [x] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now) (PR #10)
 
-**Phase 0 status: 11 / 13 criteria met.** Open follow-ups to close the phase:
-1. Smoke verify `npm start` and `npm run preview:web` end-to-end
+**Phase 0 status: 13 / 13 criteria met.** All exit criteria closed by PRs #10, #11, #12, #17, #18, #19. Phase-exit ceremony PR pending.
 
 **Estimated PRs:** 4–6 (TS+Vite dual-config, React+Konva parity, Platform adapter skeleton, lint/format, test infra)
 
@@ -898,3 +897,4 @@ History:
 - 2026-05-24: progress — Phase 0 8/13 exit criteria ticked off retroactively after PRs #10, #11, #12 (TS+React+Vite+Konva toolchain, UI shell, CJS-main fix). Remaining 5: lint (broken, needs ESLint flat config), 2 × Playwright e2e (not set up), 2 × end-to-end smoke verify of `npm start` and `preview:web`.
 - 2026-05-24: PR #18 — Phase 0 follow-up: ESLint flat config + Vitest envs + GitHub Actions CI
 - 2026-05-24: PR #17 — Phase 0 follow-up: Playwright E2E for Electron and web
+- 2026-05-24: PR #19 — Phase 0 follow-up: smoke verify built Electron + web bundles launch cleanly
