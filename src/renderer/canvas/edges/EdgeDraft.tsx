@@ -98,6 +98,12 @@ export function EdgeDraft() {
   // single cubic Bezier — matches what sibling A's Edge.tsx renders.
   const points = [fromPoint.x, fromPoint.y, c1.x, c1.y, c2.x, c2.y, toPoint.x, toPoint.y];
 
+  // Build the props conditionally so we never pass `dash: undefined`
+  // (exactOptionalPropertyTypes forbids it on a Konva LineConfig where
+  // `dash?: number[]`). When snapped we omit the prop entirely so the
+  // line renders solid; otherwise we provide the dash array.
+  const dashProps = snap ? {} : { dash: [...DRAFT_DASH] };
+
   return (
     <Line
       points={points}
@@ -110,7 +116,7 @@ export function EdgeDraft() {
       lineCap="round"
       lineJoin="round"
       opacity={snap ? DRAFT_OPACITY_SNAPPED : DRAFT_OPACITY_DASHED}
-      dash={snap ? undefined : DRAFT_DASH}
+      {...dashProps}
       // Pointer-events off so the ghost itself doesn't intercept the user's
       // mouseup at the destination.
       listening={false}
