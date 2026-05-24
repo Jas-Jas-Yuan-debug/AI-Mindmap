@@ -192,7 +192,7 @@ AI-Mindmap/
 ├── vite.config.electron.ts         # renderer build for Electron
 ├── vite.config.web.ts              # renderer build for web (static SPA)
 ├── electron-builder.yml            # desktop packaging (added in later phase)
-├── .eslintrc.cjs
+├── eslint.config.js
 ├── .prettierrc
 ├── src/
 │   ├── main/                       # Electron main process (TS → dist-main/)
@@ -565,7 +565,7 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [ ] `npm run build:electron && npm start` runs the packaged desktop app (build verified, end-to-end `npm start` launch not yet smoke-checked)
 - [ ] `npm run build:web && npm run preview:web` serves the production web bundle (build verified, preview not yet smoke-checked)
 - [x] `npm run typecheck` passes with zero errors (PR #10)
-- [ ] `npm run lint` passes (BROKEN — ESLint 9 requires flat config, but PR #10 shipped legacy `.eslintrc.cjs`; tracked as issue #9 Q4 follow-up)
+- [x] `npm run lint` passes (closed by PR #18 — ESLint 9 flat config migration)
 - [x] One Vitest unit test passes (`tests/unit/smoke.test.ts`, PR #10)
 - [ ] One Electron e2e test launches the app and asserts the window title (Playwright not set up; deferred to Phase 0 PR 2)
 - [ ] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering (Playwright not set up; deferred to Phase 0 PR 2)
@@ -574,12 +574,9 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [x] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target (PR #8 plan amendment)
 - [x] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now) (PR #10)
 
-**Phase 0 status: 8 / 13 criteria met.** Open follow-ups to close the phase:
-1. ESLint 9 flat config migration — fixes `npm run lint` (issue #9 Q4)
-2. Vitest `environmentMatchGlobs` + jsdom — pre-req for proper renderer tests (issue #9 Q5)
-3. Playwright E2E for Electron + web — closes the two e2e criteria
-4. GitHub Actions CI workflow — runs all of the above on every PR (issue #9 Q1)
-5. Smoke verify `npm start` and `npm run preview:web` end-to-end
+**Phase 0 status: 9 / 13 criteria met.** Open follow-ups to close the phase:
+1. Playwright E2E for Electron + web — closes the two e2e criteria
+2. Smoke verify `npm start` and `npm run preview:web` end-to-end
 
 **Estimated PRs:** 4–6 (TS+Vite dual-config, React+Konva parity, Platform adapter skeleton, lint/format, test infra)
 
@@ -900,3 +897,4 @@ History:
 - 2026-05-24: amendment — multi-platform (Electron + Web), JSON Canvas 1.0 file format, Excalidraw-inspired UI
 - 2026-05-24: amendment — DROPPED multi-user collaboration (any form, permanently) and DROPPED interop with other apps (Obsidian Canvas / Excalidraw / Miro / Figma — permanently). File format switched from `.canvas` (JSON Canvas 1.0 spec, Obsidian-interop) to our own `.aimap` (JSON Canvas-derived schema, free to extend, no interop promise).
 - 2026-05-24: progress — Phase 0 8/13 exit criteria ticked off retroactively after PRs #10, #11, #12 (TS+React+Vite+Konva toolchain, UI shell, CJS-main fix). Remaining 5: lint (broken, needs ESLint flat config), 2 × Playwright e2e (not set up), 2 × end-to-end smoke verify of `npm start` and `preview:web`.
+- 2026-05-24: PR #18 — Phase 0 follow-up: ESLint flat config + Vitest envs + GitHub Actions CI
