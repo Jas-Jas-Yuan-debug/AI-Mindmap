@@ -8,6 +8,7 @@ import { useSelection } from "../store/selection.js";
 import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
+import { EdgesLayer } from "./edges/EdgesLayer.js";
 import { usePan } from "./interactions/usePan.js";
 import { useZoom } from "./interactions/useZoom.js";
 import { useDeleteKey } from "./interactions/useDeleteKey.js";
@@ -19,9 +20,14 @@ import { useCreate } from "./interactions/useCreate.js";
 // interactions onto the Stage via the usePan / useZoom hooks; PR 3 adds
 // the background Grid layer underneath the origin/content layer.
 //
-// Phase 2 PR 1 adds a Nodes layer between the Grid and the Origin:
-//   - Grid Layer (back, listening:false) — background dots
-//   - Nodes Layer (middle, listening:true) — TextNode cards from useNodes
+// Phase 2 PR 1 added a Nodes layer between the Grid and the Origin.
+// Phase 3 PR 1 inserts the Edges layer UNDER the Nodes layer so arrows
+// pass behind cards (matches Excalidraw's mental model and avoids
+// drawing the connector ON TOP of the card it's pointing at).
+//
+//   - Grid Layer  (back,   listening:false) — background dots
+//   - Edges Layer (middle, listening:true)  — Bezier connections
+//   - Nodes Layer (middle, listening:true)  — TextNode cards from useNodes
 //   - Origin Layer (front, listening:false) — debug crosshair stays visible
 //
 // Origin stays on top so a card placed at (0,0) doesn't hide the debug
@@ -107,6 +113,7 @@ export function Canvas() {
           <Grid />
         </Layer>
       ) : null}
+      <EdgesLayer />
       <Layer>
         {nodes.map((n) => (
           <TextNodeCard

@@ -27,7 +27,7 @@
 // handle has `e.target` set to the card Group (or the handle Rect), so the
 // Stage doesn't pan. Verified by reading usePan.onMouseDown.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Rect } from "react-konva";
 import type { Color, PresetColor, TextNode } from "../../store/nodes.js";
@@ -40,6 +40,7 @@ import {
   RESIZE_HANDLES,
   type ResizeHandle,
 } from "../interactions/resize.js";
+import { AnchorDots } from "./AnchorDots.js";
 
 /**
  * Preset color id ("1".."6", per plan §5) → concrete hex.
@@ -124,6 +125,10 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
   // zoom via useViewport keeps the dependency tight.
   const zoom = useViewport((s) => s.zoom);
   const handleCanvasSize = HANDLE_SCREEN_SIZE / zoom;
+  // Phase 3: anchor dots appear on hover OR when the card is selected.
+  // Konva's pointer enter/leave fire independently of drag, so this
+  // doesn't interfere with the draggable Group below.
+  const [hovered, setHovered] = useState(false);
 
   // Build optional pointer-event handlers conditionally so we don't pass
   // `undefined` under exactOptionalPropertyTypes. Konva's prop types
@@ -210,6 +215,11 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
       id={node.id}
       draggable
       onDragMove={onDragMove}
+      // Hover tracking for Phase 3 anchor dots. Konva's pointer enter /
+      // leave are dispatched separately from mouse down/move/up, so this
+      // doesn't interfere with the draggable Group above.
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
       {...pointerHandlers}
     >
       <Rect
@@ -233,6 +243,7 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
         shadowBlur={6}
         shadowOpacity={0.25}
       />
+      <AnchorDots node={node} visible={hovered || selected} />
       {selected
         ? handles.map((h) => {
             const pos = handlePosition(h, node.width, node.height);

@@ -12,8 +12,8 @@
 // the card whose contents they're editing.
 
 import { useEffect } from "react";
-import { useNodes } from "../../store/nodes.js";
 import { useSelection } from "../../store/selection.js";
+import { deleteNodeAndEdges } from "../../store/edges.js";
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -31,10 +31,12 @@ export function useDeleteKey(): void {
       const selectedIds = Object.keys(useSelection.getState().ids);
       if (selectedIds.length === 0) return;
 
-      // Snapshot the actions once, outside the loop — calling getState()
-      // inside the loop would re-read the store on every iteration.
-      const { deleteNode } = useNodes.getState();
-      for (const id of selectedIds) deleteNode(id);
+      // Phase 3: route every node delete through `deleteNodeAndEdges`
+      // so connected edges are removed in the same logical step. The
+      // helper takes ONE node id at a time; we loop, but Phase 4's
+      // history middleware will wrap the whole loop in a single undo
+      // transaction.
+      for (const id of selectedIds) deleteNodeAndEdges(id);
       useSelection.getState().clear();
 
       // Prevent the browser's default (Backspace = back-navigation in some
