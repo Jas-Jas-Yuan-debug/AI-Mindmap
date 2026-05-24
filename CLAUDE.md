@@ -1,5 +1,15 @@
 # AI-Mindmap
 
+## 🛑 Read this first, every session
+
+Before you do anything else — **read [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md) from top to bottom.** It defines the product, the phases, the tech stack, the file format, the architecture, and the exit criteria for every milestone. This `CLAUDE.md` covers workflow (Git, collaboration, conflicts); the plan covers *what we are building and in what order*. Both are mandatory.
+
+**Conflict resolution:**
+- If `CLAUDE.md` and `DEVELOPMENT_PLAN.md` disagree on **workflow** (Git, PRs, branches, collaboration) → `CLAUDE.md` wins.
+- If they disagree on **product, architecture, or tech choices** → `DEVELOPMENT_PLAN.md` wins.
+
+**Never start work that contradicts the plan without first opening a PR that amends the plan.** No silent scope drift.
+
 ## Tech stack
 
 This is an **Electron desktop application** (Chromium renderer + Node.js main process).
