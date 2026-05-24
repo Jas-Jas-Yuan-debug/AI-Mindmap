@@ -9,7 +9,7 @@
     "dev:electron": "node scripts/dev-electron.mjs",
     "dev:web": "vite --config vite.config.web.ts",
     "build:electron:renderer": "vite build --config vite.config.electron.ts",
-    "build:electron:main": "tsc -p tsconfig.main.json",
+    "build:electron:main": "tsc -p tsconfig.main.json && node scripts/write-main-cjs-marker.mjs",
     "build:electron": "npm run build:electron:renderer && npm run build:electron:main",
     "build:web": "vite build --config vite.config.web.ts",
     "preview:web": "vite preview --config vite.config.web.ts",
