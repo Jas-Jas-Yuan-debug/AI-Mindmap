@@ -1,0 +1,70 @@
+/* Hamburger menu container — wraps the trigger Island and the dropdown so
+   they share a positioning context. The dropdown is absolute-positioned
+   beneath the hamburger. */
+
+.aim-mainmenu {
+  position: relative;
+  pointer-events: auto;
+}
+
+.aim-mainmenu__dropdown {
+  position: absolute;
+  top: calc(100% + var(--aim-gap-sm));
+  left: 0;
+  min-width: 12rem;
+  padding: var(--aim-gap-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-family: var(--aim-font-ui);
+  /* Sit above sibling chrome rows. */
+  z-index: 1;
+}
+
+.aim-mainmenu__section-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--aim-color-text-muted);
+  padding: var(--aim-gap-sm) calc(var(--aim-gap) * 0.5);
+}
+
+.aim-mainmenu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--aim-gap-sm);
+  width: 100%;
+  padding: var(--aim-gap-sm) calc(var(--aim-gap) * 0.5);
+  border: none;
+  background: transparent;
+  border-radius: var(--aim-border-radius-md);
+  color: var(--aim-color-text);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--aim-transition-state);
+}
+
+.aim-mainmenu__item:hover {
+  background: var(--aim-color-surface-high);
+}
+
+.aim-mainmenu__item:focus-visible {
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: -2px;
+}
+
+.aim-mainmenu__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  color: var(--aim-color-primary);
+  flex-shrink: 0;
+}
+
+.aim-mainmenu__label {
+  flex: 1;
+}

@@ -1,0 +1,29 @@
+/* StatusBar Island content styling. Position handled by Chrome.css grid;
+   this file only styles the inner layout (text rows + divider). */
+
+.aim-statusbar {
+  padding: var(--aim-gap-sm) var(--aim-gap);
+  font-size: 0.75rem;
+  color: var(--aim-color-text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.aim-statusbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aim-gap-sm);
+}
+
+.aim-statusbar__value {
+  color: var(--aim-color-text);
+  font-weight: 500;
+}
+
+.aim-statusbar__divider {
+  width: 1px;
+  height: 0.875rem;
+  background: var(--aim-color-surface-high);
+  display: inline-block;
+}

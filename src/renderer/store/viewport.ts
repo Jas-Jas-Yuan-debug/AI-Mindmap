@@ -31,6 +31,17 @@ export interface ViewportState {
   setZoom(zoom: number): void;
   /** Reset to DEFAULT_VIEWPORT. */
   reset(): void;
+  /**
+   * Fit the viewport to the document's content bounds.
+   *
+   * Phase 1 has no node store, so there are no bounds to fit; we fall back
+   * to `reset()` (centers viewport at origin, zoom 1.0). Phase 2 introduces
+   * the node store and will compute the bounding rect of all nodes here,
+   * picking a pan + zoom that centers the bounds in the viewport with a
+   * sensible margin. The call site is wired now so the menu entry and any
+   * future keyboard shortcut work end-to-end the moment Phase 2 lands.
+   */
+  fitToContent(): void;
 }
 
 export const useViewport = create<ViewportState>((set) => ({
@@ -39,4 +50,8 @@ export const useViewport = create<ViewportState>((set) => ({
   panBy: (dx, dy) => set((s) => ({ x: s.x + dx, y: s.y + dy })),
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
   reset: () => set({ ...DEFAULT_VIEWPORT }),
+  // Phase 1: no nodes yet, so "fit to content" is the same as resetting the
+  // viewport to identity. Phase 2 replaces this body with a real bounding-box
+  // computation against the node store.
+  fitToContent: () => set({ ...DEFAULT_VIEWPORT }),
 }));
