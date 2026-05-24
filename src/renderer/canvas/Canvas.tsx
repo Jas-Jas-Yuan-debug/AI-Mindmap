@@ -1,55 +1,56 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Group, Layer, Stage } from "react-konva";
+import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useViewport } from "../store/viewport.js";
 import { useSettings } from "../store/settings.js";
 import { useNodes } from "../store/nodes.js";
 import { useSelection } from "../store/selection.js";
+import { useEdgeSelection } from "../store/edgeSelection.js";
 import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
 import { AnchorDots } from "./nodes/AnchorDots.js";
 import { EdgesLayer } from "./edges/EdgesLayer.js";
 import { EdgeDraft } from "./edges/EdgeDraft.js";
+import { EdgeHitLayer } from "./edges/EdgeHitLayer.js";
+import { EdgeSelectionHighlight } from "./edges/EdgeSelectionHighlight.js";
 import { useDrawEdge } from "./edges/useDrawEdge.js";
 import { usePan } from "./interactions/usePan.js";
 import { useZoom } from "./interactions/useZoom.js";
 import { useDeleteKey } from "./interactions/useDeleteKey.js";
 import { useCreate } from "./interactions/useCreate.js";
+import { useEdgeSelectClick } from "./interactions/useEdgeSelectClick.js";
+import { useEdgeContextMenu } from "./interactions/useEdgeContextMenu.js";
 
 // The viewport-driven Konva Stage. Owns its own size (responsive to window
-// resize) and reads pan/zoom from the Zustand viewport store. Phase 1 PR 1
-// rendered only the Origin debug crosshair inside; PR 2 wires pan/zoom
-// interactions onto the Stage via the usePan / useZoom hooks; PR 3 adds
-// the background Grid layer underneath the origin/content layer.
+// resize) and reads pan/zoom from the Zustand viewport store.
 //
 // Phase 2 PR 1 added a Nodes layer between the Grid and the Origin.
 // Phase 3 PR 1 (sibling A) inserts the Edges layer UNDER the Nodes layer
-// so arrows pass behind cards (matches Excalidraw's mental model and
-// avoids drawing the connector ON TOP of the card it's pointing at).
-// Phase 3 PR 2 (this branch) adds:
-//   - AnchorDots per TextNode (the four small grab handles). They use
-//     LOCAL coords inside their parent Group, so we wrap each instance in
-//     a Konva <Group x={node.x} y={node.y}> at the node's canvas
-//     position. Rendering them as a sibling of the TextNode Group keeps
-//     us out of `TextNode.tsx` (sibling C's file) and lets the dots
-//     visually overlap the card's selection ring.
-//   - A thin EdgeDraft layer between the Edges layer and the Nodes layer
-//     so the "ghost" Bezier drawn during drag-to-connect renders above
-//     committed edges but below the cards.
-//   - useDrawEdge() hook, composed with usePan: an anchor-dot mousedown
-//     short-circuits the pan handler so the user doesn't start panning
-//     while drawing an edge.
+// so arrows pass behind cards (matches Excalidraw's mental model).
+// Phase 3 PR 2 (sibling B) adds AnchorDots per TextNode + EdgeDraft
+// (ghost during drag-to-connect) + useDrawEdge() composed with usePan.
+// Phase 3 PR 3 (this PR) adds:
+//   - EdgeHitLayer: transparent, wider-stroked, listening hit targets
+//     for committed edges. A's <Edge>'s visible Path is non-listening
+//     (so edges never steal pan / drag from empty canvas); without this
+//     overlay edges would be un-clickable. Stamped name="aim-edge" + id.
+//   - EdgeSelectionHighlight: purple overlay drawn on top of EdgesLayer
+//     for the currently-selected edge (listening:false).
+//   - useEdgeSelectClick: Stage onClick handler that walks the target's
+//     ancestor chain for `name="aim-edge"` and selects.
+//   - useEdgeContextMenu: container contextmenu listener that uses
+//     Stage.getIntersection to detect edges and open the ColorPicker.
 //
 // Layer order (back → front):
-//   - Grid Layer   (listening:false, only when gridVisible)
-//   - Edges Layer  (EdgesLayer — committed edges, listening:true)
-//   - EdgeDraft Layer (this PR, listening:false — ghost only)
-//   - Nodes Layer  (TextNodeCard + per-node Group{ AnchorDots })
-//   - Origin Layer (listening:false, debug crosshair stays visible)
-//
-// Origin stays on top so a card placed at (0,0) doesn't hide the debug
-// marker; we want to see "is this where I think it is?" through the card.
+//   - Grid Layer        (listening:false, only when gridVisible)
+//   - Edges Layer       (committed edges, listening:true via EdgeHitLayer)
+//   - Edge Hit Layer    (this PR, transparent hit targets, listening:true)
+//   - Edge Draft Layer  (PR 2, ghost edge, listening:false)
+//   - Edge Selection Highlight (this PR, focus overlay, listening:false)
+//   - Nodes Layer       (TextNodeCard + per-node Group{ AnchorDots })
+//   - Origin Layer      (listening:false, debug crosshair on top)
 
 function useStageSize() {
   const [size, setSize] = useState(() => ({
@@ -72,20 +73,22 @@ export function Canvas() {
   const zoom = useViewport((s) => s.zoom);
   const gridVisible = useSettings((s) => s.gridVisible);
   const nodes = useNodes((s) => s.nodes);
-  // Subscribe to the selection map (not the action functions) so a select
-  // re-renders only the cards whose `selected` prop actually changed.
   const selectionIds = useSelection((s) => s.ids);
+
+  // Stage ref — needed by useEdgeContextMenu so it can attach a DOM
+  // listener to the Konva container and call `Stage.getIntersection`.
+  const stageRef = useRef<Konva.Stage | null>(null);
 
   const pan = usePan();
   const zoomI = useZoom();
-  // Phase 2 PR 2 interactions: keyboard Delete/Backspace + double-click-empty
-  // creates a card. Both hooks are mounted once; they read store state via
-  // getState() so they don't subscribe to per-keystroke re-renders.
   useDeleteKey();
   const create = useCreate();
   // Phase 3 PR 2: drag-from-anchor → new edge. Composed with usePan in
   // onStageMouseDown — anchor mousedown short-circuits pan.
   const draw = useDrawEdge();
+  // Phase 3 PR 3: edge click selection + right-click color picker.
+  const edgeSelect = useEdgeSelectClick();
+  useEdgeContextMenu(stageRef);
 
   // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
   const onWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -98,12 +101,14 @@ export function Canvas() {
   // selection. Otherwise fall through to pan + empty-canvas-click logic.
   const onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     if (draw.onMouseDown(e)) return;
-    // Pan starts on mousedown too; let it run first so it can claim the
-    // event for middle-click / space-drag. usePan only acts on the
-    // relevant button so calling it here is safe.
     pan.onMouseDown(e);
     if (e.target === e.target.getStage()) {
       useSelection.getState().clear();
+      // Empty-canvas mousedown also drops any edge selection so a stray
+      // click on the background "resets" the focus state cleanly. The
+      // onClick handler below will re-do this for any non-edge target —
+      // harmless double-clear.
+      useEdgeSelection.getState().clear();
     }
   };
 
@@ -127,6 +132,7 @@ export function Canvas() {
 
   return (
     <Stage
+      ref={stageRef}
       width={width}
       height={height}
       x={x}
@@ -139,6 +145,8 @@ export function Canvas() {
       onMouseUp={onStageMouseUp}
       onMouseLeave={onStageMouseLeave}
       onWheel={onWheel}
+      onClick={edgeSelect.onClick}
+      onTap={edgeSelect.onClick}
       onDblClick={create.onDblClick}
       onDblTap={create.onDblClick}
     >
@@ -148,9 +156,11 @@ export function Canvas() {
         </Layer>
       ) : null}
       <EdgesLayer />
+      <EdgeHitLayer />
       <Layer listening={false} name="edge-draft">
         <EdgeDraft />
       </Layer>
+      <EdgeSelectionHighlight />
       <Layer>
         {nodes.map((n) => {
           const selected = Boolean(selectionIds[n.id]);
@@ -160,9 +170,6 @@ export function Canvas() {
                 node={n}
                 selected={selected}
                 onSelect={() => {
-                  // Single-select for Phase 2. Phase 4 will read modifier
-                  // keys off the event and call `select(id, true)` on
-                  // Shift+click.
                   useSelection.getState().select(n.id);
                 }}
               />
@@ -170,10 +177,7 @@ export function Canvas() {
                   geometry.anchorPosition are relative to {0,0,width,height}),
                   so we wrap them in a Group at the node's canvas position.
                   Rendered AFTER the TextNode so the dots visually sit
-                  above the card. Per the plan, anchors show on hover or
-                  when the card is selected; for now we force them on
-                  while selected — Phase 3 PR 3 (sibling C) may add hover
-                  affordance via Konva enter/leave on the card Group. */}
+                  above the card. */}
               <Group x={n.x} y={n.y}>
                 <AnchorDots node={n} visible={selected} />
               </Group>

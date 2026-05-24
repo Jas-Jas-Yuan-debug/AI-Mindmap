@@ -1,30 +1,40 @@
-// Floating 7-swatch color picker shown on right-click of a node overlay.
+// Floating 7-swatch color picker shown on right-click of a node or edge.
 //
-// Phase 2 PR 3 scope (sibling subagent C):
+// Phase 2 PR 3 (sibling subagent C): originally implemented for nodes only.
+// Phase 3 PR 3 (this PR, also sibling C): generalized to also color edges
+// by adding a `targetKind` discriminator. The picker UI is unchanged; only
+// the dispatch on "pick" branches: node → `useNodes.updateNode(id, { color })`,
+// edge → `useEdges.updateEdge(id, { color })`.
+//
+// Scope:
 //   - 6 preset hues (PRESET_COLOR_MAP "1".."6") + 1 "default" swatch that
 //     clears the color back to the themed fallback.
 //   - Positioned at the cursor coordinates clamped to viewport bounds so
 //     it never overflows offscreen.
 //   - Closes on swatch click, Escape, or click-outside.
 //
-// We chose React-local state (lifted into NodeOverlayLayer) over a Zustand
-// slice — this is transient UI state with no persistence story. Adding it
-// to a store would be premature abstraction.
+// State location: React-local in the parent (`NodeOverlayLayer`), no Zustand
+// slice — the picker is transient UI with no persistence story.
 //
-// Picking a swatch dispatches `useNodes.getState().updateNode(id, { color })`
-// which sibling A's TextNode.tsx already reacts to via the `resolveColor`
-// helper. The picker doesn't know how the color is rendered; it's purely
-// a setter.
+// Backward compatibility: the legacy `nodeId` prop is still supported via
+// a default `targetKind: "node"`. Any existing call site that only passes
+// `nodeId` keeps working without changes.
 
 import { useEffect, useRef } from "react";
+import { useEdges } from "../store/edges.js";
 import { useNodes } from "../store/nodes.js";
 import type { PresetColor } from "../store/nodes.js";
 import { PRESET_COLOR_MAP } from "../canvas/nodes/TextNode.js";
 import "./ColorPicker.css";
 
+export type ColorTargetKind = "node" | "edge";
+
 export interface ColorPickerProps {
-  /** Node whose color is being edited. */
-  nodeId: string;
+  /** Id of the node or edge whose color is being edited. */
+  targetId: string;
+  /** Which store to dispatch the color change to. Defaults to "node" for
+   *  backwards compatibility with the Phase 2 PR 3 call site. */
+  targetKind?: ColorTargetKind;
   /** Screen-space pointer position where the picker should anchor. */
   x: number;
   y: number;
@@ -61,7 +71,49 @@ function clampToViewport(x: number, y: number) {
   };
 }
 
-export function ColorPicker({ nodeId, x, y, onClose }: ColorPickerProps) {
+function applyNodeColor(nodeId: string, color: PresetColor | undefined): void {
+  if (color === undefined) {
+    // Clear the color by rebuilding the node without the `color` field.
+    // We can't use updateNode({ color: undefined }) because the store's
+    // shallow merge keeps the key with an undefined value, and
+    // exactOptionalPropertyTypes forbids that on optional fields.
+    // Drop the key entirely via setState.
+    useNodes.setState((s) => ({
+      nodes: s.nodes.map((n) => {
+        if (n.id !== nodeId) return n;
+        const { color: _color, ...rest } = n;
+        void _color;
+        return rest as typeof n;
+      }),
+    }));
+  } else {
+    useNodes.getState().updateNode(nodeId, { color });
+  }
+}
+
+function applyEdgeColor(edgeId: string, color: PresetColor | undefined): void {
+  if (color === undefined) {
+    // Same dance as node: drop the `color` key entirely.
+    useEdges.setState((s) => ({
+      edges: s.edges.map((e) => {
+        if (e.id !== edgeId) return e;
+        const { color: _color, ...rest } = e;
+        void _color;
+        return rest as typeof e;
+      }),
+    }));
+  } else {
+    useEdges.getState().updateEdge(edgeId, { color });
+  }
+}
+
+export function ColorPicker({
+  targetId,
+  targetKind = "node",
+  x,
+  y,
+  onClose,
+}: ColorPickerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const { x: left, y: top } = clampToViewport(x, y);
 
@@ -91,24 +143,10 @@ export function ColorPicker({ nodeId, x, y, onClose }: ColorPickerProps) {
   }, [onClose]);
 
   const pick = (color: PresetColor | undefined) => {
-    if (color === undefined) {
-      // Clear the color by rebuilding the node without the `color` field.
-      // We can't use updateNode({ color: undefined }) because the store's
-      // shallow merge keeps the key with an undefined value, and
-      // exactOptionalPropertyTypes forbids that on optional fields.
-      // Drop the key entirely via setState.
-      useNodes.setState((s) => ({
-        nodes: s.nodes.map((n) => {
-          if (n.id !== nodeId) return n;
-          // Destructure to drop the `color` field. Underscore prefix tells
-          // ESLint the binding is intentionally unused.
-          const { color: _color, ...rest } = n;
-          void _color;
-          return rest as typeof n;
-        }),
-      }));
+    if (targetKind === "edge") {
+      applyEdgeColor(targetId, color);
     } else {
-      useNodes.getState().updateNode(nodeId, { color });
+      applyNodeColor(targetId, color);
     }
     onClose();
   };
@@ -119,7 +157,7 @@ export function ColorPicker({ nodeId, x, y, onClose }: ColorPickerProps) {
       className="aim-color-picker"
       style={{ left, top }}
       role="menu"
-      aria-label="Card color"
+      aria-label={targetKind === "edge" ? "Edge color" : "Card color"}
       // Capture mousedown so the click-outside listener (also mousedown)
       // doesn't immediately close us when the user clicks a swatch.
       onMouseDown={(e) => e.stopPropagation()}

@@ -5,6 +5,7 @@ import { electronPlatform } from "../platform/electron.js";
 import { webPlatform } from "../platform/web.js";
 import type { Platform } from "../shared/platform.js";
 import { installDevHelpers } from "./dev/aimPushCards.js";
+import { installEdgeDevHelpers } from "./dev/aimPushEdges.js";
 import "./ui/theme.css";
 
 declare global {
@@ -25,8 +26,11 @@ const platform: Platform =
 window.platform = platform;
 
 // Dev-only: expose `window.__aimPushCards(n)` for the 100-card perf
-// smoke test (Phase 2 §6 exit criterion 1). Tree-shaken in prod builds.
+// smoke test (Phase 2 §6 exit criterion 1) and `window.__aimPushEdges(n)`
+// for the 100×200 edge perf smoke test (Phase 3 §6 exit criterion 1).
+// Tree-shaken in prod builds.
 installDevHelpers();
+installEdgeDevHelpers();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root not found");
