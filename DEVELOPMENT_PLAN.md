@@ -596,11 +596,11 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 **Exit criteria**
 - [x] Pan/zoom feels smooth at 60fps on a 2019 MacBook (closed by PR #21 — wheel-based + drag pan + keyboard shortcuts, cursor-centered zoom; implementation is visually smooth at typical interaction speeds, frame-rate not measured on specific hardware)
 - [x] Zoom range clamped 0.1×–4.0×; can't pan into invalid state (closed by PR #21 — `clampZoom` enforced at the store boundary via `setViewport` / `setZoom`)
-- [ ] Grid renders correctly at all zoom levels (no Moiré, scales with zoom)
+- [x] Grid renders correctly at all zoom levels (no Moiré, scales with zoom) (PR #22 — `src/renderer/canvas/Grid.tsx` adaptive power-of-2 step + viewport culling; View menu toggles visibility; `Grid.test.ts` locks in step math)
 - [ ] Viewport state survives reload-from-file (saved in `.aimap`)
 - [x] Unit tests cover viewport math (screen↔canvas coord conversion) (PR #20 — `src/renderer/canvas/layout.test.ts`, 14 tests covering clamp/round-trip/zoom-anchor invariant)
 
-**Phase 1 status: 3 / 5 criteria met.** Open follow-ups: grid (sibling PR — Phase 1 PR 3/3), viewport persistence in `.aimap` (Phase 5 file-format work).
+**Phase 1 status: 4 / 5 criteria met.** Open follow-up: viewport persistence in `.aimap` (Phase 5 file-format work). Pan/zoom (PR #21), grid + StatusBar (zoom %, cursor canvas coords) + View menu (toggle grid, fit to content) + `viewport.fitToContent()` (PR #22) all shipped.
 
 **Estimated PRs:** 2–3
 
@@ -902,3 +902,4 @@ History:
 - 2026-05-24: PR #19 — Phase 0 follow-up: smoke verify built Electron + web bundles launch cleanly
 - 2026-05-24: PR #20 — Phase 1 foundation: Canvas Stage + viewport store + coord math + tests
 - 2026-05-24: PR #21 — Phase 1 pan/zoom + ZoomControls wire
+- 2026-05-24: PR #22 — Phase 1 grid + status bar + view toggle + fit-to-content

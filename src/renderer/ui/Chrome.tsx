@@ -5,6 +5,7 @@ import { ThemeToggle } from "./ThemeToggle.js";
 import { ZoomControls } from "./ZoomControls.js";
 import { UndoRedo } from "./UndoRedo.js";
 import { HelpButton } from "./HelpButton.js";
+import { StatusBar } from "./StatusBar.js";
 
 // The floating chrome layer that sits over the canvas. Mirrors Excalidraw's
 // LayerUI / FixedSideContainer pattern: wrapper has pointer-events: none so
@@ -31,7 +32,8 @@ export function Chrome() {
           <UndoRedo />
         </div>
         <div className="aim-chrome__col aim-chrome__col--center" />
-        <div className="aim-chrome__col aim-chrome__col--end">
+        <div className="aim-chrome__col aim-chrome__col--end aim-chrome__col--gap">
+          <StatusBar />
           <HelpButton />
         </div>
       </div>
