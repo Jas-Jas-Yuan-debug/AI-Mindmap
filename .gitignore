@@ -21,11 +21,14 @@ yarn-error.log*
 pnpm-debug.log*
 .pnpm-store/
 dist/
+dist-electron/
+dist-web/
 build/
 .next/
 out/
 coverage/
 .cache/
+.vite/
 
 # Python
 __pycache__/
