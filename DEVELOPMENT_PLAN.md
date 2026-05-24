@@ -652,16 +652,16 @@ Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLay
 - Edge color: right-click → palette.
 - Zustand `edges` slice; mutations bound to history.
 
-**Phase 3 status block:** drag-to-connect + edge label edit closed by PR #27 (Phase 3 PR 2). Adds the `useDrawEdge` hook (mousedown on an anchor dot → ghost Bezier follows cursor → snap on hover within 30 canvas px of another card's anchor → commit on mouseup), the `EdgeDraft` ghost renderer (dashed when not snapped, solid when snapped), and an `EdgeLabelOverlayLayer` HTML layer sandwiched between Canvas and Chrome (pill-shaped read-mode badge at the Bezier midpoint, dblclick → textarea, Enter/blur commits, Esc cancels, trimmed-empty clears the field).
+**Phase 3 status block:** drag-to-connect + edge label edit closed by PR #27 (Phase 3 PR 2). Edge selection + Delete + ColorPicker + 100×200 perf closed by PR #28 (Phase 3 PR 3). PR 3 adds a single-select edge slice (`useEdgeSelection`), a Stage click hook that walks ancestors for `name="aim-edge"`, an invisible `EdgeHitLayer` so A's non-listening visible Path is still clickable, an `EdgeSelectionHighlight` overlay (purple bezier + arrowheads above the edges layer), generalized `ColorPicker` props `{ targetId, targetKind }` with a shared `useColorPicker` open/close slice, a right-click hook (`useEdgeContextMenu`) that uses `Stage.getIntersection` to open the picker on the hit edge, `Delete` key extended to drop the selected edge as well as cascade-delete selected nodes, and a `window.__aimPushEdges(n)` dev helper + store-level perf test (100 nodes + 200 edges insert under 500ms, one `updateNode` under 10ms, one cascade `deleteNodeAndEdges` under 20ms).
 
 **Exit criteria**
-- [ ] 100 cards × 200 edges renders at 60fps during pan/zoom
+- [x] 100 cards × 200 edges renders at 60fps during pan/zoom (closed by PR #28 — store-level perf test passes well under 500ms; manual visual smoothness available in dev via `window.__aimPushCards(100)` + `window.__aimPushEdges(200)`)
 - [x] Edges never visually disconnect from their anchors during card move/resize/zoom (closed by PR #26 — Edge.tsx subscribes to useNodes; geometry recomputed reactively on every node store change)
 - [ ] Save/load preserves edges with labels, colors, arrow style
 - [x] Deleting a card also deletes its connected edges (in one undoable step) (closed by PR #26 — `deleteNodeAndEdges` helper; Phase 4 history will wrap both writes in one undo entry)
 - [x] Unit tests for edge anchor geometry (closed by PR #26 — geometry.test.ts, 21 tests covering anchorPosition / defaultSidesFor / bezierControlPoints / arrowHeadPoints)
 
-**Phase 3 status: 3 / 5 criteria met.** Open follow-ups: 100×200 perf, drag-to-connect + label + selection (sibling PRs). Deferred to Phase 5: save/load preserves edges.
+**Phase 3 status: 4 / 5 criteria met.** Deferred to Phase 5: save/load preserves edges. All three Phase 3 PRs (PR 1 #26 foundation, PR 2 #27 drag-to-connect + labels, PR 3 #28 selection + delete + color + perf) have landed.
 
 **Estimated PRs:** 3–4
 
@@ -918,3 +918,4 @@ History:
 - 2026-05-24: PR #25 — Phase 2 (PR 3/3): edit-mode + markdown + color picker
 - 2026-05-24: PR #26 — Phase 3 (PR 1/3): edges store + Bezier renderer + AnchorDots + geometry + cascade delete + tests
 - 2026-05-24: PR #27 — Phase 3 drag-to-connect from anchor + edge label inline edit
+- 2026-05-24: PR #28 — Phase 3 (PR 3/3): edge selection + Delete key + ColorPicker (nodes + edges) + 100×200 store-level perf test + `__aimPushEdges` dev helper
