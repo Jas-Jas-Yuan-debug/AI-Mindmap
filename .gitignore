@@ -52,5 +52,10 @@ env/
 *.log
 logs/
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+
 # OS / misc
 Thumbs.db

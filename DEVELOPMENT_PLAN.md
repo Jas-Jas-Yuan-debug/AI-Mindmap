@@ -567,16 +567,15 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [x] `npm run typecheck` passes with zero errors (PR #10)
 - [x] `npm run lint` passes (closed by PR #18 — ESLint 9 flat config migration)
 - [x] One Vitest unit test passes (`tests/unit/smoke.test.ts`, PR #10)
-- [ ] One Electron e2e test launches the app and asserts the window title (Playwright not set up; deferred to Phase 0 PR 2)
-- [ ] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering (Playwright not set up; deferred to Phase 0 PR 2)
+- [x] One Electron e2e test launches the app and asserts the window title (closed by PR #17)
+- [x] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering (closed by PR #17)
 - [x] Web bundle does NOT contain `"electron"` string (CI guard passes) (`scripts/verify-web-no-electron.mjs`, PR #10)
 - [x] CSP strict on both targets; preload contextBridge in place for Electron (PR #10; note `style-src 'unsafe-inline'` and `connect-src ws:` allowed for React + Vite HMR — documented in `src/renderer/index.html`)
 - [x] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target (PR #8 plan amendment)
 - [x] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now) (PR #10)
 
-**Phase 0 status: 9 / 13 criteria met.** Open follow-ups to close the phase:
-1. Playwright E2E for Electron + web — closes the two e2e criteria
-2. Smoke verify `npm start` and `npm run preview:web` end-to-end
+**Phase 0 status: 11 / 13 criteria met.** Open follow-ups to close the phase:
+1. Smoke verify `npm start` and `npm run preview:web` end-to-end
 
 **Estimated PRs:** 4–6 (TS+Vite dual-config, React+Konva parity, Platform adapter skeleton, lint/format, test infra)
 
@@ -898,3 +897,4 @@ History:
 - 2026-05-24: amendment — DROPPED multi-user collaboration (any form, permanently) and DROPPED interop with other apps (Obsidian Canvas / Excalidraw / Miro / Figma — permanently). File format switched from `.canvas` (JSON Canvas 1.0 spec, Obsidian-interop) to our own `.aimap` (JSON Canvas-derived schema, free to extend, no interop promise).
 - 2026-05-24: progress — Phase 0 8/13 exit criteria ticked off retroactively after PRs #10, #11, #12 (TS+React+Vite+Konva toolchain, UI shell, CJS-main fix). Remaining 5: lint (broken, needs ESLint flat config), 2 × Playwright e2e (not set up), 2 × end-to-end smoke verify of `npm start` and `preview:web`.
 - 2026-05-24: PR #18 — Phase 0 follow-up: ESLint flat config + Vitest envs + GitHub Actions CI
+- 2026-05-24: PR #17 — Phase 0 follow-up: Playwright E2E for Electron and web

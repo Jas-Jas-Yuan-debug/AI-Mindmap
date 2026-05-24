@@ -18,6 +18,9 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"scripts/**/*.mjs\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"*.{json,md}\"",
     "test": "vitest run",
+    "test:e2e:electron": "npm run build:electron && playwright test --project=electron",
+    "test:e2e:web": "npm run build:web && playwright test --project=web-chromium",
+    "test:e2e": "npm run test:e2e:electron && npm run test:e2e:web",
     "verify:web-no-electron": "node scripts/verify-web-no-electron.mjs"
   },
   "author": "Jason Zhu",
@@ -38,6 +41,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
