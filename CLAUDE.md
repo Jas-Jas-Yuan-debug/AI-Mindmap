@@ -39,7 +39,7 @@ These rules apply to **both AI agents**. Follow them strictly — they exist so 
 - **Every change goes through a PR**, even small ones — it's how the other agent sees the diff.
 - PR description must include: what changed, why, how it was tested, and any follow-ups left for the other agent.
 - If a PR touches an area the other agent is actively working on, note it in the description and check their open branches first (`git branch -r`).
-- **Self-merge is allowed** (only two agents, no human reviewer), but only after: CI/tests pass locally, the diff has been re-read, and the branch is rebased on current `main`.
+- **Self-merge is the default, not an option.** After opening a PR, the same agent immediately runs the self-merge checklist (see below) and merges. Do not pause to ask the user "should I merge?" — opening a PR implies the intent to land it. Only hold a PR open if (a) it's marked `[WIP]` / `[BLOCKED]`, (b) it touches the same files as another agent's open PR (Scenario D), or (c) the user explicitly says "wait."
 
 ### Staying in sync
 - Run `git fetch` at the start of each session so you see the other agent's branches.
