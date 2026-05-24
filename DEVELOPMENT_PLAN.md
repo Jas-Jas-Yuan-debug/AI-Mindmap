@@ -8,34 +8,50 @@
 
 ## 1. Product vision
 
-**AI-Mindmap is an AI-augmented infinite whiteboard, modeled on Obsidian Canvas.**
+**AI-Mindmap is an AI-augmented infinite whiteboard. Files are Obsidian Canvas–compatible (`.canvas`, JSON Canvas 1.0 spec). The UI takes its visual cues from Excalidraw.**
 
-Users place **cards** (text/markdown, images, files, links) on an **infinite 2D canvas**, connect them with **labeled arrows**, and organize them with **group containers**. AI features (summarize, expand, suggest connections, generate nodes from prompts, chat-with-canvas) are layered on **after** the core whiteboard is fully usable as a standalone, AI-free tool.
+Users place **cards** (text/markdown, files, links, groups) on an **infinite 2D canvas**, connect them with **labeled arrows**, and organize them with **group containers**. AI features (summarize, expand, suggest connections, generate nodes from prompts, chat-with-canvas) are layered on **after** the core whiteboard is fully usable as a standalone, AI-free tool.
 
-### Why this order
+### Two product anchors (decided, do not re-debate without a Plan PR)
+
+1. **File format: JSON Canvas 1.0** ([jsoncanvas.org/spec/1.0/](https://jsoncanvas.org/spec/1.0/)) — the same `.canvas` files Obsidian writes. Files round-trip between AI-Mindmap and Obsidian without loss. **Why this and not Excalidraw's format:** Excalidraw's schema is freehand-drawing-oriented (point arrays, stroke properties, scene versioning) and overkill for a node-and-edge whiteboard — adopting it would force us to invent semantics we don't need. JSON Canvas is purpose-built for exactly the model we want: typed nodes + edges + minimal styling.
+2. **UI design language: Excalidraw-inspired** — full-bleed canvas with floating **Island** chrome (rounded cards with the signature triple-layered soft shadow), the purple `#6965db` accent against near-white surfaces, Assistant/system-ui font, minimal toolbar + zoom controls + hamburger menu. **Why:** Excalidraw's chrome is widely loved, intuitive, and refined over years. Reusing its visual idioms gets us instant polish without copying any of its drawing-engine code (which we don't need — we're a node-edge canvas, not a freehand drawing tool).
+
+### Platform targets
+
+- **Electron desktop app** (macOS / Windows / Linux) — primary target, local file system access via Node `fs`.
+- **Web app** (browser) — same React renderer codebase, served as static files. File I/O via the **File System Access API** where supported (Chromium-based browsers), with download/upload fallback elsewhere. AI calls proxied through a thin server in the web build (or user-supplied API key entered client-side and held only in memory — decided in Phase 9).
+
+The renderer code is **platform-agnostic**. A `Platform` adapter (`src/platform/electron.ts`, `src/platform/web.ts`) provides file I/O, AI access, settings, and key storage. The React app talks only to the adapter — never directly to Electron APIs or browser-specific APIs. Vite builds two targets: `npm run build:electron` (consumed by electron-builder) and `npm run build:web` (static site).
+
+### Why this order (whiteboard first, then AI)
 1. A whiteboard with no AI is still useful. AI on top of a broken whiteboard is useless.
-2. The whiteboard interactions (drag, multi-select, undo, persistence, file format) are the hard, slow part — get them right before adding LLM complexity.
+2. The whiteboard interactions (drag, multi-select, undo, persistence) are the hard, slow part — get them right before adding LLM complexity.
 3. AI features depend on a stable file format and node model. Defining those without a working canvas leads to retrofitting.
 
 ### What we are NOT building (V1)
-- Mobile or web versions (Electron desktop only)
+- Native mobile apps (iOS/Android) — the web build will work on mobile browsers, but no native UI
 - Real-time multi-user collaboration
 - Plugin / extension system
 - Custom theme engine beyond dark/light
 - A built-in markdown editor outside of card content (no separate notes pane)
-- Hand-drawn freeform strokes (this is a node-and-edge whiteboard, not Excalidraw)
+- Hand-drawn freeform strokes (we're a node-and-edge whiteboard, not a drawing app)
+- Server-side document storage (local-first; user brings sync via iCloud Drive / Dropbox / Obsidian Sync)
 
 ---
 
 ## 2. Non-negotiable principles
 
-1. **Whiteboard works fully without AI.** AI is additive. If you remove the AI module, the app must still launch and let the user build a mindmap.
-2. **Phase-gated.** Don't start Phase N+1 until every exit criterion in Phase N passes. Skipping ahead creates dependency chains that break later.
-3. **Two-agent collaboration through PRs only.** See `CLAUDE.md`. No agent unilaterally rewrites another's recently-merged work without a PR that explains why.
-4. **Security defaults stay strict.** `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, strict CSP. Any relaxation requires a dedicated PR that calls it out in the title and body.
-5. **No secrets in renderer.** API keys live in the OS keychain (via main process); the renderer asks main to make AI calls, never holds keys.
-6. **Local-first.** Files live on the user's disk. No mandatory cloud, no telemetry, no account.
-7. **Types as contracts.** TypeScript strict mode. Shared types between main/preload/renderer live in `src/shared/`.
+1. **Whiteboard works fully without AI.** AI is additive. Removing the AI module must leave a fully functional whiteboard.
+2. **Both platforms ship together.** Every feature lands in Electron AND web (or is explicitly marked as platform-specific in this plan). No "Electron-only" features sneaking in unannounced.
+3. **Phase-gated.** Don't start Phase N+1 until every exit criterion in Phase N passes.
+4. **Two-agent collaboration through PRs only.** See `CLAUDE.md`. No agent unilaterally rewrites another's recently-merged work without a PR that explains why.
+5. **Security defaults stay strict.** Electron: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, strict CSP. Web: strict CSP, no `eval`, no `dangerouslySetInnerHTML`. Any relaxation requires a dedicated PR with the change called out in title and body.
+6. **No secrets in renderer.** Electron: API keys live in OS keychain via main process. Web: API keys live in `sessionStorage` only (cleared on tab close) or are user-supplied per-request — never persisted to `localStorage`.
+7. **Local-first.** Files live on the user's disk (Electron) or the user's chosen folder (web, via File System Access API). No mandatory cloud, no telemetry, no account.
+8. **Types as contracts.** TypeScript strict mode. Shared types live in `src/shared/`.
+9. **JSON Canvas fidelity.** Files written by AI-Mindmap MUST be loadable in Obsidian. Files written by Obsidian MUST round-trip through AI-Mindmap losslessly (preserve unknown fields).
+10. **Plan stays current.** Any PR that changes scope, decisions, exit criteria, file format, or architecture **must update `DEVELOPMENT_PLAN.md` in the same PR.** A PR that drifts from the plan without updating it is rejected — open a plan-amendment PR first.
 
 ---
 
@@ -43,71 +59,121 @@ Users place **cards** (text/markdown, images, files, links) on an **infinite 2D 
 
 | Layer | Choice | Why |
 |---|---|---|
-| Shell | **Electron** (already in repo, currently v33, bumping to v42) | Desktop, file system access, established |
-| Language | **TypeScript (strict)** | Two async agents need types as a contract; catches drift |
-| Renderer framework | **React 18** | Interaction-heavy UI (drag, multi-select, undo, nested groups, modals); huge ecosystem |
-| Bundler / dev server | **Vite** | Fast HMR for renderer; good TS + React story |
-| State management | **Zustand** | Tiny API, no boilerplate, plays well with undo middleware; Redux is overkill |
+| Desktop shell | **Electron** (currently v42) | Desktop, OS file access, established |
+| Web shell | **Static SPA** served from any static host (Vercel/Netlify/GH Pages) | Zero server needed for the base app |
+| Language | **TypeScript (strict)** | Types as contract between agents and across platforms |
+| Renderer framework | **React 18** | Interaction-heavy UI (drag, multi-select, undo, groups, modals) |
+| Bundler / dev server | **Vite** — two build targets: `build:electron`, `build:web` | Fast HMR; supports multi-target builds cleanly |
+| State management | **Zustand** | Tiny API, no boilerplate, plays well with undo middleware |
 | Canvas surface | **Konva.js + react-konva** | Mature 2D scene graph; handles thousands of nodes; built-in hit testing, drag, transforms |
-| Markdown rendering | **react-markdown** + **remark-gfm** | Standard, safe (no `dangerouslySetInnerHTML`) |
-| Persistence format | **JSON files** (`.aimap.json`) | Human-diffable, future-proof, easy to migrate |
-| File I/O | **Electron `fs/promises`** via IPC | Renderer never touches `fs` directly |
-| Keychain (for AI keys) | **keytar** | Cross-platform OS keychain |
-| AI SDK (first provider) | **@anthropic-ai/sdk** | Project is Anthropic-built; can add others later behind the provider interface |
+| UI primitives | **Custom Islands** (Excalidraw-style) — no UI kit | We want the Excalidraw look exactly; off-the-shelf kits (MUI, Chakra) would fight us |
+| Icons | **lucide-react** | MIT, tree-shakable, large set, matches our minimal aesthetic |
+| Markdown rendering | **react-markdown** + **remark-gfm** | Safe (no `dangerouslySetInnerHTML`) |
+| Persistence format | **JSON Canvas 1.0** (`.canvas` files, [spec](https://jsoncanvas.org/spec/1.0/)) | Obsidian-compatible, exactly the right model |
+| Schema validation | **Zod** | Runtime validation at the file-load boundary |
+| File I/O (Electron) | Node `fs/promises` via IPC | Renderer never touches `fs` directly |
+| File I/O (web) | **File System Access API** (Chromium) + download/upload fallback | Local-first in the browser, no server needed for files |
+| Key storage (Electron) | **keytar** (OS keychain) | Never expose keys to renderer |
+| Key storage (web) | `sessionStorage` (memory-bound, cleared on tab close) — or server proxy | No persisted secrets in the browser |
+| AI SDK (first provider) | **@anthropic-ai/sdk** | Project is Anthropic-built; provider interface allows adding others |
 | Unit tests | **Vitest** | Native TS, fast, Vite-aligned |
-| E2E tests | **Playwright for Electron** | Drives the real app, including IPC |
+| E2E tests | **Playwright** — for Electron (Playwright-for-Electron) AND web (standard Playwright) | One framework, both platforms |
 | Lint / format | **ESLint** + **Prettier** | Standard; config committed |
-| Packaging | **electron-builder** | Cross-platform installers |
+| Desktop packaging | **electron-builder** | Cross-platform installers |
+| Web deploy target | Static hosting (decided in Phase 8) — start with GitHub Pages | Free, no server, fits local-first model |
 
 ### Locked decisions that need active enforcement
 - **No `dangerouslySetInnerHTML`** anywhere. Markdown goes through `react-markdown`.
 - **No `eval`, no `new Function`.** CSP would block it anyway, but don't write it.
-- **No `require('electron')` in the renderer.** Use the preload `contextBridge` `api` only.
-- **All IPC channels typed.** Shared types in `src/shared/ipc.ts`.
+- **No `require('electron')` in the renderer.** Renderer talks to `window.platform` (the adapter) only.
+- **No direct `fetch` of user-controlled URLs from the renderer in Electron.** Goes through main process so we can apply allow-listing later.
+- **All IPC channels (Electron) and adapter methods (both platforms) are typed.** Shared types in `src/shared/`.
+- **Web build must never import Electron-only modules.** Vite's `define` / conditional imports gate this; add a build check that fails CI if `electron` appears in the web bundle.
 
 ---
 
 ## 4. Architecture
 
+The renderer is **identical across Electron and Web**. Platform differences live behind a single adapter the renderer imports as `window.platform`.
+
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│ Electron Main Process (Node.js)                                      │
-│  - App lifecycle, BrowserWindow                                      │
-│  - File I/O (open/save .aimap.json, image imports)                   │
-│  - AI provider calls (keys from keychain, never sent to renderer)    │
-│  - Recent files, app settings (electron-store)                       │
-│  - Auto-update (later)                                               │
-└──────────────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ IPC (typed channels, src/shared/ipc.ts)
-                            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│ Preload (sandboxed, contextBridge)                                   │
-│  - Exposes window.api: { files, ai, settings } — typed wrappers      │
-│  - No direct Node API leakage                                        │
-└──────────────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ window.api.*
-                            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│ Renderer (React + Konva, sandboxed)                                  │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │ React UI layer (HTML/CSS)                                      │  │
-│  │  - Top bar, menus, toolbars, dialogs, sidebars, context menus │  │
-│  │  - Floating overlays positioned over the canvas               │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │ Konva canvas (whole viewport)                                  │  │
-│  │  - Stage, Layer, Node shapes (Rect/Image/Text), Edge lines    │  │
-│  │  - Pan/zoom transform, hit testing, drag                      │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │ Zustand store (single source of truth)                         │  │
-│  │  - { nodes, edges, viewport, selection, history }              │  │
-│  │  - All mutations go through actions; actions push to history   │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
+                ┌─────────────────────────────────────┐
+                │   React + Konva renderer            │
+                │   (identical on Electron + Web)     │
+                │                                     │
+                │   ┌─────────────────────────────┐   │
+                │   │ UI Islands (chrome)         │   │
+                │   │  toolbar, zoom, menu, etc.  │   │
+                │   └─────────────────────────────┘   │
+                │   ┌─────────────────────────────┐   │
+                │   │ Konva Stage (canvas)        │   │
+                │   │  nodes, edges, interactions │   │
+                │   └─────────────────────────────┘   │
+                │   ┌─────────────────────────────┐   │
+                │   │ Zustand store               │   │
+                │   │  nodes, edges, viewport,    │   │
+                │   │  selection, history         │   │
+                │   └─────────────────────────────┘   │
+                └────────────────┬────────────────────┘
+                                 │
+                       window.platform: Platform
+                                 │
+            ┌────────────────────┼────────────────────┐
+            ▼                                         ▼
+  ┌────────────────────┐                  ┌────────────────────┐
+  │ ElectronPlatform   │                  │ WebPlatform        │
+  │ (preload bridge)   │                  │ (browser APIs)     │
+  ├────────────────────┤                  ├────────────────────┤
+  │ • IPC → main proc  │                  │ • File System      │
+  │ • keytar for keys  │                  │   Access API       │
+  │ • fs/promises      │                  │ • sessionStorage   │
+  │ • OS keychain      │                  │   for keys (mem)   │
+  └─────────┬──────────┘                  │ • optional server  │
+            │                             │   proxy for AI     │
+            ▼                             └────────────────────┘
+  ┌────────────────────┐
+  │ Electron main      │
+  │ (Node.js)          │
+  │ • BrowserWindow    │
+  │ • fs/promises      │
+  │ • Anthropic SDK    │
+  └────────────────────┘
 ```
+
+### The Platform interface (the single contract)
+
+```ts
+// src/shared/platform.ts — implemented by both electron.ts and web.ts
+export interface Platform {
+  readonly kind: "electron" | "web";
+
+  files: {
+    openCanvas(): Promise<{ handle: FileHandle; data: JSONCanvas } | null>;
+    saveCanvas(handle: FileHandle, data: JSONCanvas): Promise<void>;
+    saveCanvasAs(data: JSONCanvas, suggestedName?: string): Promise<FileHandle | null>;
+    recentFiles(): Promise<RecentFile[]>;
+  };
+
+  ai: {
+    complete(req: AIRequest): Promise<AIResponse>;
+    stream(req: AIRequest): AsyncIterable<AIChunk>;
+    hasKey(): Promise<boolean>;
+    setKey(key: string): Promise<void>;     // electron → keychain; web → sessionStorage
+  };
+
+  settings: {
+    get<K extends keyof Settings>(k: K): Promise<Settings[K]>;
+    set<K extends keyof Settings>(k: K, v: Settings[K]): Promise<void>;
+  };
+
+  shell: {
+    openPath(path: string): Promise<void>;  // open file/folder in OS (no-op or download on web)
+    openExternal(url: string): Promise<void>;
+  };
+}
+```
+
+The renderer NEVER reaches around the Platform. If you find yourself wanting `if (window.electron)` in renderer code, add a method to the Platform interface instead.
 
 ### Directory layout (target — Phase 0 establishes this)
 
@@ -115,44 +181,54 @@ Users place **cards** (text/markdown, images, files, links) on an **infinite 2D 
 AI-Mindmap/
 ├── package.json
 ├── tsconfig.json
-├── tsconfig.main.json          # main process compile config
-├── vite.config.ts              # renderer dev/build
-├── electron-builder.yml        # packaging (added in later phase)
+├── tsconfig.main.json              # Electron main process compile config
+├── vite.config.electron.ts         # renderer build for Electron
+├── vite.config.web.ts              # renderer build for web (static SPA)
+├── electron-builder.yml            # desktop packaging (added in later phase)
 ├── .eslintrc.cjs
 ├── .prettierrc
 ├── src/
-│   ├── main/                   # Electron main process (TS, compiled to dist-main/)
-│   │   ├── main.ts             # app lifecycle, window creation
-│   │   ├── preload.ts          # contextBridge
-│   │   ├── ipc/                # IPC handlers, one file per channel group
+│   ├── main/                       # Electron main process (TS → dist-main/)
+│   │   ├── main.ts                 # app lifecycle, window creation
+│   │   ├── preload.ts              # contextBridge → window.platform
+│   │   ├── ipc/                    # IPC handlers per channel group
 │   │   │   ├── files.ts
 │   │   │   ├── ai.ts
 │   │   │   └── settings.ts
 │   │   └── ai/
-│   │       ├── provider.ts     # interface
-│   │       └── anthropic.ts    # impl
-│   ├── renderer/               # React app (TS, bundled by Vite)
+│   │       ├── provider.ts         # interface
+│   │       └── anthropic.ts        # impl
+│   ├── platform/                   # the Platform interface implementations
+│   │   ├── electron.ts             # uses IPC; wired to preload
+│   │   └── web.ts                  # uses File System Access API + sessionStorage
+│   ├── renderer/                   # React app (TS, Vite-built)
 │   │   ├── index.html
-│   │   ├── main.tsx            # entrypoint
+│   │   ├── main.tsx                # entrypoint — picks Platform impl
 │   │   ├── App.tsx
-│   │   ├── canvas/             # Konva-based whiteboard
+│   │   ├── canvas/                 # Konva-based whiteboard
 │   │   │   ├── Canvas.tsx
-│   │   │   ├── nodes/          # one file per node type
+│   │   │   ├── nodes/              # one file per node type
 │   │   │   ├── edges/
-│   │   │   ├── interactions/   # pan, zoom, select, drag, lasso
+│   │   │   ├── interactions/       # pan, zoom, select, drag, lasso
 │   │   │   └── layout.ts
-│   │   ├── ui/                 # React UI overlays (menus, toolbars, dialogs)
-│   │   ├── store/              # Zustand slices
+│   │   ├── ui/                     # React UI overlays — Islands, toolbars, menus
+│   │   │   ├── Island.tsx          # the core Excalidraw-style floating card
+│   │   │   ├── Toolbar.tsx
+│   │   │   ├── ZoomControls.tsx
+│   │   │   ├── MainMenu.tsx
+│   │   │   └── theme.css           # tokens: #6965db, shadows, radii
+│   │   ├── store/                  # Zustand slices
 │   │   │   ├── nodes.ts
 │   │   │   ├── edges.ts
 │   │   │   ├── viewport.ts
 │   │   │   ├── selection.ts
-│   │   │   └── history.ts      # undo/redo
+│   │   │   └── history.ts          # undo/redo
 │   │   └── styles/
-│   └── shared/                 # used by both main and renderer
-│       ├── ipc.ts              # IPC channel names + payload types
-│       ├── fileFormat.ts       # .aimap.json schema + Zod validators
-│       └── types.ts            # Node, Edge, Viewport types
+│   └── shared/                     # used by main, platform impls, and renderer
+│       ├── ipc.ts                  # Electron IPC channel names + payload types
+│       ├── platform.ts             # Platform interface
+│       ├── jsoncanvas.ts           # JSON Canvas 1.0 types + Zod validators
+│       └── types.ts                # internal canvas types (viewport, selection, etc.)
 ├── tests/
 │   ├── unit/
 │   └── e2e/
@@ -161,60 +237,264 @@ AI-Mindmap/
 
 ---
 
-## 5. File format (`.aimap.json`)
+## 5. File format — JSON Canvas 1.0 (`.canvas`)
 
-Locked schema for V1. Migrations handled by `version` field. Validated with **Zod** in `src/shared/fileFormat.ts`.
+**We adopt the [JSON Canvas 1.0 spec](https://jsoncanvas.org/spec/1.0/) exactly. Field names match the spec. Files round-trip with Obsidian losslessly.**
+
+This is **not** a custom format — it's the open spec maintained by the Obsidian team. We do not extend it with bespoke top-level fields in V1; anything we'd want (viewport state, app metadata, etc.) is stored OUTSIDE the `.canvas` file (e.g. in a sidecar `.canvas.aim.json` or in app settings keyed by file path). This keeps the `.canvas` file pure and interoperable.
+
+### Schema (authoritative TypeScript — paste into `src/shared/jsoncanvas.ts`)
 
 ```ts
-type Aimap = {
-  version: 1;
-  meta: {
-    createdAt: string;        // ISO timestamp
-    updatedAt: string;
-    app: { name: "AI-Mindmap"; version: string };  // app version, semver
-  };
-  viewport: {
-    x: number;                // canvas-space pan offset
-    y: number;
-    zoom: number;             // 0.1 .. 4.0
-  };
-  nodes: Node[];
-  edges: Edge[];
-};
+/**
+ * JSON Canvas 1.0 — https://jsoncanvas.org/spec/1.0/
+ * Native file format for .canvas files (Obsidian-compatible).
+ * Field names MUST match the spec exactly. Do not rename.
+ */
 
-type NodeBase = {
-  id: string;                 // uuid v4
-  x: number;                  // top-left in canvas space
-  y: number;
-  w: number;
-  h: number;
-  color?: string;             // hex like "#5b8def", optional palette index later
-  parentId?: string;          // id of containing GroupNode, if any
-};
+/** Root document. Both arrays are OPTIONAL per spec. */
+export interface JSONCanvas {
+  nodes?: Node[];
+  edges?: Edge[];
+}
 
-type TextNode  = NodeBase & { type: "text";  text: string };           // markdown
-type FileNode  = NodeBase & { type: "file";  path: string; name: string };
-type ImageNode = NodeBase & { type: "image"; path: string; alt?: string };
-type LinkNode  = NodeBase & { type: "link";  url: string; title?: string; favicon?: string };
-type GroupNode = NodeBase & { type: "group"; label?: string };
+/**
+ * Color: either a hex string (e.g. "#FF0000") OR a preset palette index
+ * "1".."6". Presets map to red/orange/yellow/green/cyan/purple, but the
+ * spec deliberately does NOT fix the exact hex values — apps theme them.
+ * Treat preset strings as opaque tokens on read.
+ */
+export type CanvasColor = HexColor | CanvasPresetColor;
+export type HexColor = `#${string}`;                          // e.g. "#FF0000"
+export type CanvasPresetColor = "1" | "2" | "3" | "4" | "5" | "6";
+//  "1" red | "2" orange | "3" yellow | "4" green | "5" cyan | "6" purple
 
-type Node = TextNode | FileNode | ImageNode | LinkNode | GroupNode;
+/** Fields shared by every node. */
+export interface NodeBase {
+  id: string;            // required, unique
+  type: NodeType;        // required
+  x: number;             // required, integer, pixels (+x right)
+  y: number;             // required, integer, pixels (+y down)
+  width: number;         // required, integer, pixels
+  height: number;        // required, integer, pixels
+  color?: CanvasColor;
+}
 
-type Edge = {
-  id: string;
-  from: { node: string; side: "top" | "right" | "bottom" | "left" };
-  to:   { node: string; side: "top" | "right" | "bottom" | "left" };
+export type NodeType = "text" | "file" | "link" | "group";
+
+export interface TextNode extends NodeBase {
+  type: "text";
+  text: string;          // required; Markdown
+}
+
+export interface FileNode extends NodeBase {
+  type: "file";
+  file: string;          // required; path relative to vault root (Obsidian) or document folder (us)
+  subpath?: string;      // optional; heading anchor or block ref. MUST start with "#"
+}
+
+export interface LinkNode extends NodeBase {
+  type: "link";
+  url: string;           // required
+}
+
+export interface GroupNode extends NodeBase {
+  type: "group";
   label?: string;
-  color?: string;
-  arrow?: "none" | "end" | "both"; // default "end"
-};
+  background?: string;                       // optional; path to bg image
+  backgroundStyle?: GroupBackgroundStyle;
+}
+export type GroupBackgroundStyle = "cover" | "ratio" | "repeat";
+
+export type Node = TextNode | FileNode | LinkNode | GroupNode;
+
+/** Edge between two nodes. */
+export interface Edge {
+  id: string;                  // required, unique
+  fromNode: string;            // required; references Node.id
+  toNode: string;              // required; references Node.id
+  fromSide?: EdgeSide;
+  toSide?: EdgeSide;
+  fromEnd?: EdgeEnd;           // default "none"
+  toEnd?: EdgeEnd;             // default "arrow"
+  color?: CanvasColor;
+  label?: string;
+}
+export type EdgeSide = "top" | "right" | "bottom" | "left";
+export type EdgeEnd  = "none" | "arrow";
 ```
 
-### Format rules
-- Unknown fields are **preserved** on load and re-saved (forward compat).
-- `version` mismatch newer-than-known: refuse to open, show clear error.
-- `version` older-than-known: run migration in `src/shared/migrations/`.
-- File paths in `FileNode` / `ImageNode` are stored **relative to the `.aimap.json` file** when possible, absolute otherwise. Migration writes them as relative.
+### Spec rules we must honor
+
+- **No `version` field at root.** The spec is externally versioned (1.0, 2024-03-11). If JSON Canvas 2.0 ships, we'll add a migration path. Today, no version field.
+- **Z-order is array order.** `nodes[0]` renders bottom, `nodes[length-1]` renders top. Preserve order on save.
+- **Coordinates are integer pixels, +x right, +y down.** Match Obsidian's convention so files don't appear shifted when opened there.
+- **Color values: write presets when possible.** If the user picked a swatch from our palette, write the preset string `"1"`–`"6"` so other apps can re-theme. Only write hex when the user picked a custom color.
+- **Preserve unknown fields on round-trip.** Any field we don't recognize must survive a load → edit → save cycle. Implement this with a "passthrough" pattern in the Zod schema.
+- **Edge defaults: `fromEnd: "none"`, `toEnd: "arrow"`.** An edge with neither field set is a one-way arrow from `fromNode` to `toNode`.
+- **`FileNode.file` paths are relative.** Obsidian uses vault-root-relative. We use document-folder-relative (the folder containing the `.canvas`). Convert absolute paths to relative on save.
+
+### How we store things JSON Canvas doesn't cover
+
+The spec is intentionally minimal. We need a few things it doesn't define (viewport state, recent-file metadata, app-internal flags). Storage strategy:
+
+| What | Where | Why not in `.canvas` |
+|---|---|---|
+| Viewport (pan/zoom) | App settings, keyed by file path | Spec has no viewport field; pure files keep interop clean |
+| AI chat history per file | Sidecar `<file>.canvas.aim.json` next to the `.canvas` | Could be large, not Obsidian-relevant |
+| Recent files list | App settings | Per-user, not per-document |
+| App version that last opened | App settings | Telemetry-ish, not a file concern |
+
+### Minimal valid file (for tests)
+
+```json
+{
+  "nodes": [
+    { "id": "a", "type": "text", "x": 0,   "y": 0, "width": 240, "height": 80, "text": "# Hello" },
+    { "id": "b", "type": "link", "x": 320, "y": 0, "width": 240, "height": 80, "url": "https://anthropic.com", "color": "5" }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "a", "fromSide": "right", "toNode": "b", "toSide": "left", "label": "see" }
+  ]
+}
+```
+
+### Interop tests (required in Phase 5)
+- Open a `.canvas` file generated by Obsidian → render correctly, all fields preserved.
+- Save a file we created → open it in Obsidian → renders correctly.
+- Round-trip with unknown extra fields → fields survive.
+
+---
+
+## 5b. UI design language — Excalidraw-inspired
+
+We are not building a freehand drawing app. We are building a node-edge whiteboard. We adopt Excalidraw's **visual layer** (layout, chrome, palette, type), not its drawing engine.
+
+### Layout idiom: full-bleed canvas + floating Islands
+
+The canvas owns the viewport. All UI chrome floats over it in **Islands** — rounded cards with a soft three-layer shadow that look like lifted paper. The wrapper that holds the Islands has `pointer-events: none`; each Island re-enables pointer events on itself. This is exactly Excalidraw's `LayerUI` + `FixedSideContainer` + `Island` pattern.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ ╭─────────╮  ╭─────────────────────────╮  ╭───────╮          │
+│ │ ☰  Menu │  │ [↖] [T] [▢] [→] [🔗] [📷]│  │ Theme │          │
+│ ╰─────────╯  ╰─────────────────────────╯  ╰───────╯          │
+│                                                              │
+│                                                              │
+│                                                              │
+│                     CANVAS                                   │
+│                                                              │
+│                                                              │
+│                                                              │
+│  ╭─────────────────╮                              ╭───╮      │
+│  │ [−] 100% [+]    │                              │ ? │      │
+│  │ ╭─────╮ ╭─────╮ │                              ╰───╯      │
+│  │ │ ⟲   │ │ ⟳   │ │                                         │
+│  ╰─────────────────╯                                         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Top-left:** main menu hamburger (file ops, settings, about).
+- **Top-center:** tool palette (select, text card, group, edge, image, link). Icon-only buttons, 2rem square, single Island.
+- **Top-right:** theme toggle, AI toggle (later phases).
+- **Bottom-left:** zoom controls Island (`−` / `100%` / `+`), undo/redo Island next to it.
+- **Bottom-right:** help button (opens shortcuts cheat sheet).
+
+### Design tokens (paste into `src/renderer/ui/theme.css`)
+
+```css
+:root {
+  /* Accent (Excalidraw purple) */
+  --aim-color-primary: #6965db;
+  --aim-color-primary-hover: #5753d0;
+  --aim-color-primary-light: #e3e2fe;
+
+  /* Surfaces (light) */
+  --aim-color-canvas-bg: #ffffff;
+  --aim-color-island-bg: #ffffff;
+  --aim-color-surface-high: #f1f0ff;
+  --aim-color-text: #1b1b1f;
+  --aim-color-border: #767680;
+
+  /* Sizing */
+  --aim-button-size: 2rem;
+  --aim-button-size-lg: 2.25rem;
+  --aim-icon-size: 1rem;
+  --aim-border-radius: 0.5rem;       /* Islands */
+  --aim-border-radius-md: 0.375rem;  /* buttons */
+  --aim-container-padding: 1rem;
+
+  /* The Excalidraw signature triple shadow */
+  --aim-shadow-island:
+    0px 0px 1px 0px rgba(0,0,0,0.17),
+    0px 0px 3px 0px rgba(0,0,0,0.08),
+    0px 7px 14px 0px rgba(0,0,0,0.05);
+
+  /* Type */
+  --aim-font-ui: "Assistant", system-ui, BlinkMacSystemFont, -apple-system,
+                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Transitions */
+  --aim-transition-shadow: 0.5s ease-in-out;
+  --aim-transition-state: all 0.2s ease;
+}
+
+[data-theme="dark"] {
+  --aim-color-primary: #a8a5ff;
+  --aim-color-primary-hover: #bbb8ff;
+  --aim-color-canvas-bg: #121212;
+  --aim-color-island-bg: #232329;
+  --aim-color-surface-high: #2e2d39;
+  --aim-color-text: #e3e3e8;
+  --aim-color-border: #8e8d9c;
+}
+```
+
+### The `<Island>` primitive
+
+Single React component used to wrap every chrome cluster. ~30 lines of code. Phase 0 (or earliest Phase 1) ships this and the layout shell.
+
+```tsx
+// src/renderer/ui/Island.tsx
+import { PropsWithChildren } from "react";
+import "./Island.css";
+
+export function Island({ children, className }: PropsWithChildren<{ className?: string }>) {
+  return <div className={`aim-island ${className ?? ""}`}>{children}</div>;
+}
+```
+
+```css
+.aim-island {
+  background: var(--aim-color-island-bg);
+  border-radius: var(--aim-border-radius);
+  box-shadow: var(--aim-shadow-island);
+  padding: calc(var(--aim-container-padding) * 0.25);
+  pointer-events: auto;
+  font-family: var(--aim-font-ui);
+  color: var(--aim-color-text);
+  transition: box-shadow var(--aim-transition-shadow);
+}
+```
+
+### What we explicitly do NOT take from Excalidraw
+
+- The drawing engine, shape primitives, freehand stroke logic — not relevant to a node-edge canvas.
+- Their library/templates panel — different product.
+- Their collaborator avatars/multiplayer UI — out of scope for V1.
+- Hand-drawn fonts (Virgil, Excalifont) — our cards render Markdown in a normal font.
+
+### Reference implementations (for layout, not code-copying)
+
+When implementing Phase 1's chrome, mimic the structure of these Excalidraw files (but write our own code; Excalidraw is MIT but we have no need to vendor it):
+
+- `packages/excalidraw/components/LayerUI.tsx` — floating-chrome composition over canvas
+- `packages/excalidraw/components/FixedSideContainer.tsx` + `.scss` — absolute top/bottom positioning primitive
+- `packages/excalidraw/components/Island.tsx` + `Island.scss` — the rounded shadowed card
+- `packages/excalidraw/components/Actions.tsx` — tool row
+- `packages/excalidraw/components/footer/Footer.tsx` — bottom three-column layout
+- `packages/excalidraw/components/main-menu/MainMenu.tsx` — hamburger pattern
+- `packages/excalidraw/css/theme.scss` — tokens (informed our table above)
 
 ---
 
@@ -222,31 +502,47 @@ type Edge = {
 
 Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR count**. PRs within a phase can ship independently; the phase is "done" only when all exit criteria pass.
 
-### Phase 0 — Toolchain & scaffolding upgrade
-**Goal:** turn the vanilla-JS Electron scaffold into a TypeScript + React + Vite + Konva foundation **without losing what's already there**.
+### Phase 0 — Toolchain & dual-target build
+**Goal:** turn the vanilla-JS Electron scaffold into a TypeScript + React + Vite + Konva foundation that builds for **both Electron and the web** from one codebase. Establish the Platform adapter pattern.
 
 **Deliverables**
-- Add TS config (`tsconfig.json`, separate `tsconfig.main.json` for main process).
-- Add Vite for renderer bundling; dev mode runs `vite` and Electron loads from `http://localhost:5173`; prod loads from built `dist-renderer/index.html`.
-- Convert `main.js` → `main.ts`, `preload.js` → `preload.ts`. Keep existing security config exactly.
-- Add React, Konva, Zustand, Zod, react-markdown, remark-gfm to deps.
-- Add ESLint + Prettier configs, wire `npm run lint` and `npm run format`.
-- Add Vitest + Playwright skeletons; one smoke test each.
-- Replace the demo "Root" rect drawing in `renderer.js` with a minimal React app that mounts a Konva `Stage` showing the same Root rect (parity check).
-- Update `package.json` scripts: `dev`, `build`, `start` (runs built app), `lint`, `format`, `test`, `test:e2e`, `typecheck`.
-- Bump Electron to v42 (already in flight on `claude-jjy/bump-electron-42` — coordinate, do not duplicate).
+- Add TS configs: `tsconfig.json` (renderer), `tsconfig.main.json` (Electron main process).
+- Add **two Vite configs**: `vite.config.electron.ts` and `vite.config.web.ts`. In Electron dev, Vite serves on `http://localhost:5173` and Electron loads from it; in prod, loads `file://` from built `dist-renderer-electron/`. Web dev: `vite --config vite.config.web.ts`. Web build emits a static SPA in `dist-web/`.
+- Convert `src/main/main.js` → `main.ts`, `preload.js` → `preload.ts`. Keep existing security config exactly.
+- Add `src/platform/` with `electron.ts` and `web.ts` — both implement the `Platform` interface from `src/shared/platform.ts` (stubs are fine in Phase 0; Phase 5 fills them out).
+- Add `src/renderer/main.tsx` that picks the platform impl at module init (`window.platform = isElectron ? electron : web`) and mounts the React app.
+- Add deps: React 18, react-dom, react-konva, konva, zustand, zod, react-markdown, remark-gfm, lucide-react.
+- Add dev deps: typescript, vite, @vitejs/plugin-react, vitest, @playwright/test, playwright-electron, eslint, prettier, eslint-config-prettier, eslint-plugin-react, @typescript-eslint/*.
+- Add ESLint + Prettier configs, wire `npm run lint`, `npm run format`.
+- Add Vitest + Playwright skeletons; one smoke test each (one for unit, one for Electron e2e, one for web e2e).
+- Replace the demo "Root" rect drawing in `renderer.js` with a React + Konva `Stage` showing the same Root rect — **parity check, runs identically in both Electron and web**.
+- `package.json` scripts:
+  - `dev:electron` — Vite (electron config) + Electron concurrently
+  - `dev:web` — Vite (web config)
+  - `build:electron` — bundles renderer + compiles main, outputs to `dist-electron/`
+  - `build:web` — static SPA in `dist-web/`
+  - `start` — launches built Electron app
+  - `preview:web` — serves built web app for local check
+  - `lint`, `format`, `typecheck`, `test`, `test:e2e:electron`, `test:e2e:web`
+- Bump Electron to v42 if not already done (the other agent had this in flight on `claude-jjy/bump-electron-42` — already merged as of last sync).
+- Add a CI guard (one-liner script) that fails if the web build's output contains the string `"electron"` (catches accidental Electron imports leaking into web).
 
 **Exit criteria**
-- [ ] `npm run dev` opens the app with the React+Konva root rect rendered
-- [ ] `npm run build && npm start` opens the packaged-style app, same rendering
+- [ ] `npm run dev:electron` opens the desktop app with the React+Konva root rect
+- [ ] `npm run dev:web` serves a browser version with the same React+Konva root rect at `http://localhost:5173`
+- [ ] `npm run build:electron && npm start` runs the packaged desktop app
+- [ ] `npm run build:web && npm run preview:web` serves the production web bundle
 - [ ] `npm run typecheck` passes with zero errors
 - [ ] `npm run lint` passes
-- [ ] One Vitest unit test runs and passes
-- [ ] One Playwright e2e test launches the app and asserts the window title
-- [ ] CSP unchanged (still strict); preload contextBridge still in place
-- [ ] CLAUDE.md "Tech stack" section updated to reflect TS/React/Vite/Konva
+- [ ] One Vitest unit test passes
+- [ ] One Electron e2e test launches the app and asserts the window title
+- [ ] One web e2e test (Playwright Chromium) loads the app and asserts the same rendering
+- [ ] Web bundle does NOT contain `"electron"` string (CI guard passes)
+- [ ] CSP strict on both targets; preload contextBridge in place for Electron
+- [ ] `CLAUDE.md` "Tech stack" section updated to reflect TS/React/Vite/Konva + dual target
+- [ ] `Platform` interface defined in `src/shared/platform.ts`; both `electron.ts` and `web.ts` implement it (even if most methods throw "not implemented" for now)
 
-**Estimated PRs:** 3–5 (one for TS+Vite, one for React mount + Konva parity, one for lint/format, one for test infra, one for the Electron bump if not already merged)
+**Estimated PRs:** 4–6 (TS+Vite dual-config, React+Konva parity, Platform adapter skeleton, lint/format, test infra)
 
 ---
 

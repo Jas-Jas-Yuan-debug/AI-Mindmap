@@ -10,9 +10,30 @@ Before you do anything else — **read [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.
 
 **Never start work that contradicts the plan without first opening a PR that amends the plan.** No silent scope drift.
 
+## 📝 Keep the plan current — at all times
+
+`DEVELOPMENT_PLAN.md` is a **living document**. Every PR is responsible for keeping it accurate. There is no separate "documentation pass" later.
+
+**You MUST update `DEVELOPMENT_PLAN.md` in the same PR when your change:**
+- Adds, removes, or reorders a phase
+- Changes any phase's deliverables or exit criteria
+- Adds, removes, or swaps a tech-stack entry (library, framework, build tool)
+- Modifies the file format, IPC contract, or Platform interface
+- Changes the directory layout
+- Marks a phase complete (update the phase header with 🟢 done + date, link to PRs)
+- Reveals that a previously locked decision was wrong (write the new decision AND a one-line "previously decided X because Y; superseded because Z")
+
+**You MAY skip a plan update only when your change is purely:** a bug fix that doesn't change behavior described in the plan, a typo, a comment-only edit, a test-only addition, or a dependency patch-version bump.
+
+**Sequencing:** if a change is large enough to need debate (new phase, dropping a library, changing the file format), open a **plan-amendment PR first** with just the doc change. Get it merged. Then open the implementation PR referencing the now-merged plan.
+
+**Drift check:** at the start of every session, after `git pull`, skim the diff between the plan's "last updated" date and `HEAD` of `main` for any recent merges. If a merged PR changed behavior the plan describes but didn't update the plan, **your first PR of the session is the plan correction.**
+
 ## Tech stack
 
-This is an **Electron desktop application** (Chromium renderer + Node.js main process).
+This is a **multi-platform application**: an **Electron desktop app** (macOS / Windows / Linux) AND a **web app** (browser SPA), built from a single React + Konva renderer codebase. Platform differences live behind a `Platform` adapter — see `DEVELOPMENT_PLAN.md` §4 for the contract.
+
+Currently in transition from the original vanilla-JS Electron scaffold (Chromium renderer + Node.js main process) to the TS/React/Vite/Konva stack defined in `DEVELOPMENT_PLAN.md` §3. Phase 0 is the migration.
 
 ### Layout
 
