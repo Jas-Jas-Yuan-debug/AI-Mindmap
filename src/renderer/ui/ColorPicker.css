@@ -1,0 +1,57 @@
+/* Floating 7-swatch color picker shown on right-click over a node overlay.
+ * Visually matches the Excalidraw Island vibe — rounded card, triple-shadow,
+ * white background — but smaller and positioned at the cursor.
+ *
+ * Sized for 7 swatches in a 4 × 2 grid (default + 6 presets); leaves a
+ * small footprint so it never blocks the card behind it. */
+
+.aim-color-picker {
+  position: fixed;
+  z-index: calc(var(--aim-z-chrome) + 10);
+  pointer-events: auto;
+  background: var(--aim-color-island-bg);
+  border-radius: var(--aim-border-radius);
+  box-shadow: var(--aim-shadow-island);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1.5rem);
+  gap: 6px;
+  font-family: var(--aim-font-ui);
+  color: var(--aim-color-text);
+}
+
+.aim-color-picker__swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--aim-color-border);
+  padding: 0;
+  cursor: pointer;
+  /* Remove default button look so the swatch is just the disc. */
+  outline: none;
+  background-clip: padding-box;
+  transition: transform 0.1s ease;
+}
+
+.aim-color-picker__swatch:hover {
+  transform: scale(1.1);
+}
+
+.aim-color-picker__swatch:focus-visible {
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: 2px;
+}
+
+/* The "default" (no color) swatch uses a diagonal line through it so it
+ * reads as "clear color", borrowing the Excalidraw convention. */
+.aim-color-picker__swatch--default {
+  background:
+    linear-gradient(
+      to top right,
+      transparent 47%,
+      var(--aim-color-danger) 47%,
+      var(--aim-color-danger) 53%,
+      transparent 53%
+    ),
+    var(--aim-color-island-bg);
+}
