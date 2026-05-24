@@ -654,10 +654,10 @@ Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLay
 
 **Exit criteria**
 - [ ] 100 cards × 200 edges renders at 60fps during pan/zoom
-- [x] Edges never visually disconnect from their anchors during card move/resize/zoom (closed by PR #PR_NUM — Edge.tsx subscribes to useNodes; geometry recomputed reactively on every node store change)
+- [x] Edges never visually disconnect from their anchors during card move/resize/zoom (closed by PR #26 — Edge.tsx subscribes to useNodes; geometry recomputed reactively on every node store change)
 - [ ] Save/load preserves edges with labels, colors, arrow style
-- [x] Deleting a card also deletes its connected edges (in one undoable step) (closed by PR #PR_NUM — `deleteNodeAndEdges` helper; Phase 4 history will wrap both writes in one undo entry)
-- [x] Unit tests for edge anchor geometry (closed by PR #PR_NUM — geometry.test.ts, 21 tests covering anchorPosition / defaultSidesFor / bezierControlPoints / arrowHeadPoints)
+- [x] Deleting a card also deletes its connected edges (in one undoable step) (closed by PR #26 — `deleteNodeAndEdges` helper; Phase 4 history will wrap both writes in one undo entry)
+- [x] Unit tests for edge anchor geometry (closed by PR #26 — geometry.test.ts, 21 tests covering anchorPosition / defaultSidesFor / bezierControlPoints / arrowHeadPoints)
 
 **Phase 3 status: 3 / 5 criteria met.** Open follow-ups: 100×200 perf, drag-to-connect + label + selection (sibling PRs). Deferred to Phase 5: save/load preserves edges.
 
@@ -914,4 +914,4 @@ History:
 - 2026-05-24: PR #23 — Phase 2 foundation: nodes + selection stores + TextNode renderer + select interaction + tests
 - 2026-05-24: PR #24 — Phase 2 (PR 2/3): move + resize + delete + create-on-double-click + 100-card perf sanity
 - 2026-05-24: PR #25 — Phase 2 (PR 3/3): edit-mode + markdown + color picker
-- 2026-05-24: PR #PR_NUM — Phase 3 (PR 1/3): edges store + Bezier renderer + AnchorDots + geometry + cascade delete + tests
+- 2026-05-24: PR #26 — Phase 3 (PR 1/3): edges store + Bezier renderer + AnchorDots + geometry + cascade delete + tests
