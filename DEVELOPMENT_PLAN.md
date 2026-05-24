@@ -598,7 +598,9 @@ Each phase has: **scope**, **deliverables**, **exit criteria**, **estimated PR c
 - [ ] Zoom range clamped 0.1×–4.0×; can't pan into invalid state
 - [ ] Grid renders correctly at all zoom levels (no Moiré, scales with zoom)
 - [ ] Viewport state survives reload-from-file (saved in `.aimap`)
-- [ ] Unit tests cover viewport math (screen↔canvas coord conversion)
+- [x] Unit tests cover viewport math (screen↔canvas coord conversion) (PR #20 — `src/renderer/canvas/layout.test.ts`, 14 tests covering clamp/round-trip/zoom-anchor invariant)
+
+**Phase 1 status: 1 / 5 criteria met.** Open follow-ups: pan/zoom smoothness (sibling PR — Phase 1 PR 2/3), zoom range clamp end-to-end UX (sibling PR — Phase 1 PR 2/3; clamp helper already in `canvas/layout.ts`), grid (sibling PR — Phase 1 PR 3/3), viewport persistence in `.aimap` (Phase 5 file-format work).
 
 **Estimated PRs:** 2–3
 
@@ -898,3 +900,4 @@ History:
 - 2026-05-24: PR #18 — Phase 0 follow-up: ESLint flat config + Vitest envs + GitHub Actions CI
 - 2026-05-24: PR #17 — Phase 0 follow-up: Playwright E2E for Electron and web
 - 2026-05-24: PR #19 — Phase 0 follow-up: smoke verify built Electron + web bundles launch cleanly
+- 2026-05-24: PR #20 — Phase 1 foundation: Canvas Stage + viewport store + coord math + tests
