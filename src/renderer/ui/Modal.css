@@ -9,22 +9,46 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--aim-backdrop);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   padding: var(--aim-container-padding);
+  animation: aim-overlay-in 0.18s var(--aim-ease) both;
+}
+
+@keyframes aim-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .aim-modal {
   background: var(--aim-color-island-bg);
   color: var(--aim-color-text);
-  border-radius: var(--aim-border-radius);
-  box-shadow: var(--aim-shadow-island);
+  border-radius: calc(var(--aim-border-radius) + 0.125rem);
+  box-shadow: var(--aim-shadow-popover);
   font-family: var(--aim-font-ui);
   max-width: 28rem;
   width: 100%;
-  padding: var(--aim-container-padding);
+  padding: calc(var(--aim-container-padding) * 1.25);
   display: flex;
   flex-direction: column;
   gap: var(--aim-gap);
+  animation: aim-modal-in 0.22s var(--aim-ease) both;
+}
+
+@keyframes aim-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .aim-modal__title {
@@ -74,12 +98,16 @@
 }
 
 .aim-modal__btn:hover {
-  background: var(--aim-color-surface-high);
+  background: var(--aim-color-surface);
+}
+
+.aim-modal__btn:active {
+  transform: scale(0.97);
 }
 
 .aim-modal__btn:focus-visible {
-  outline: 2px solid var(--aim-color-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--aim-focus-ring);
 }
 
 .aim-modal__btn--primary {
