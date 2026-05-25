@@ -32,41 +32,17 @@
 //      edge layer; node-only changes don't invalidate edge subscribers.
 
 import { create } from "zustand";
-import type { Color } from "./nodes.js";
+import { makeId } from "../../shared/aimap.js";
 import { useNodes } from "./nodes.js";
 
-/**
- * Which side of a node an edge attaches to. Mirrors the Obsidian Canvas /
- * JSON Canvas convention (plan §5 spec).
- */
-export type EdgeSide = "top" | "right" | "bottom" | "left";
+// Canonical edge types now live in `src/shared/aimap.ts` (Phase 5, PR 1/3).
+// Re-exported here so existing consumers keep importing `Edge` / `EdgeSide` /
+// `EdgeEnd` from the store path. Plan §5 edge-end defaults still apply:
+// `fromEnd` defaults to "none", `toEnd` defaults to "arrow", so an edge with
+// neither field set renders as a one-way arrow.
+export type { Edge, EdgeSide, EdgeEnd } from "../../shared/aimap.js";
 
-/**
- * Arrowhead style on a given end of an edge. "none" = no arrowhead, just
- * a curve terminator; "arrow" = filled triangle. Plan §5 defaults:
- *   - `fromEnd` defaults to "none"
- *   - `toEnd` defaults to "arrow"
- * so an edge with neither field set renders as a one-way arrow.
- */
-export type EdgeEnd = "none" | "arrow";
-
-/**
- * Edge record. Field shape MUST match plan §5 exactly so Phase 5's file
- * format work is a no-op for the renderer.
- */
-export interface Edge {
-  id: string;
-  fromNode: string;
-  toNode: string;
-  fromSide?: EdgeSide;
-  toSide?: EdgeSide;
-  /** Default "none" when unset. */
-  fromEnd?: EdgeEnd;
-  /** Default "arrow" when unset. */
-  toEnd?: EdgeEnd;
-  color?: Color;
-  label?: string;
-}
+import type { Edge } from "../../shared/aimap.js";
 
 export interface EdgesState {
   edges: Edge[];
@@ -113,18 +89,12 @@ export const useEdges = create<EdgesState>((set, get) => ({
 }));
 
 /**
- * Mint a fresh edge id. Uses `crypto.randomUUID` when available, falls
- * back to a short random suffix for jsdom + older runtimes (mirrors
- * `makeNodeId`).
- *
- * Phase 5 will replace this with the canonical uuid-v4 helper exported
- * from `src/shared/aimap.ts` once that file lands.
+ * Mint a fresh edge id. Delegates to the canonical `makeId` helper in
+ * `src/shared/aimap.ts` (uuid-v4 when available, short-suffix fallback for
+ * jsdom + older runtimes).
  */
 export function makeEdgeId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `e_${Math.random().toString(36).slice(2, 10)}`;
+  return makeId("e");
 }
 
 /**

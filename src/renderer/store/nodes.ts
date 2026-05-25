@@ -1,62 +1,55 @@
 // Zustand nodes slice — the in-memory model for every node on the canvas.
 //
-// This is the foundational store of Phase 2. Phase 3 adds an `edges` slice
-// alongside it, Phase 4 wraps mutations in a history middleware, and Phase 5
-// renames `src/shared/jsoncanvas.ts` to `src/shared/aimap.ts` and moves the
-// canonical schema types over.
+// This is the foundational store of Phase 2. Phase 3 added an `edges` slice
+// alongside it, Phase 4 wrapped mutations in history, and Phase 5 (PR 1/3)
+// landed the canonical `src/shared/aimap.ts` schema (renamed from
+// jsoncanvas.ts) + Zod validators.
 //
-// Type locality: the canonical `AimapFile` / `TextNode` schema lives in
-// `DEVELOPMENT_PLAN.md` §5. The file rename + shared module is Phase 5's
-// scope, so to avoid dragging that work into Phase 2 we declare the types
-// locally here. **Field names + shape MUST match plan §5 exactly** so the
-// Phase 5 swap is a pure import-path change with no runtime fallout.
+// Type locality (post-Phase-5): the CANONICAL node types now live in
+// `src/shared/aimap.ts`. This store re-exports them so the ~40 existing
+// import sites keep working unchanged. We keep the Zustand store, the
+// actions, and `makeNodeId` here (runtime concerns); the file format types
+// are imported from the shared module (single source of truth).
 //
-// Phase 2 only uses the `"text"` variant; the wider `NodeType` union is
-// declared up-front so Phase 3 (group) / Phase 7 (file, link, image) can
-// extend `AimapNode` without breaking existing call-sites or store
-// consumers.
+// `AimapNode` deliberately stays `= TextNode`: the canvas only RENDERS text
+// nodes until Phase 6 (group) / Phase 7 (file, link, image). The FILE schema
+// in aimap.ts defines all variants for forward-compat, but the runtime store
+// is intentionally narrowed to what the renderer can draw today. Widening
+// `AimapNode` to the full `Node` union is a Phase 6/7 change, gated on the
+// renderer learning to draw those variants.
 //
 // Public API used by sibling subagents:
-//   - `useNodes` — the Zustand hook. Sibling B (move/resize/delete/create)
-//     drives every node mutation through these actions. Sibling C
-//     (edit/markdown/color picker) updates `text` and `color` via
-//     `updateNode(id, { text })` / `updateNode(id, { color })`.
-//   - `makeNodeId()` — call this to mint a new id when creating a node.
-//     Phase 5 will replace it with a uuid-v4 helper from `src/shared`.
+//   - `useNodes` — the Zustand hook. Move/resize/delete/create + edit/color
+//     all flow through these actions.
+//   - `makeNodeId()` — mint a new id when creating a node. Delegates to the
+//     canonical `makeId` helper in `src/shared/aimap.ts`.
 
 import { create } from "zustand";
+import { makeId } from "../../shared/aimap.js";
 
-export type NodeType = "text" | "file" | "link" | "image" | "group";
+// Canonical file-format types, re-exported from the shared schema module so
+// existing consumers can keep importing them from the store path.
+export type {
+  NodeType,
+  HexColor,
+  PresetColor,
+  Color,
+  NodeBase,
+  TextNode,
+  FileNode,
+  LinkNode,
+  ImageNode,
+  GroupNode,
+  Node as AimapFileNode,
+} from "../../shared/aimap.js";
 
-// Hex strings are validated at file-load time (Phase 5); the type-level
-// guard is intentionally loose so we don't pay for runtime regex checks on
-// every render.
-export type HexColor = `#${string}`;
-// Plan §5 presets: "1"..."6" mapped to specific hues in TextNode.tsx.
-export type PresetColor = "1" | "2" | "3" | "4" | "5" | "6";
-export type Color = HexColor | PresetColor;
-
-export interface NodeBase {
-  id: string;
-  type: NodeType;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  color?: Color;
-  parentId?: string;
-}
-
-export interface TextNode extends NodeBase {
-  type: "text";
-  text: string;
-}
+import type { TextNode } from "../../shared/aimap.js";
 
 /**
- * Union of every node variant the renderer knows how to draw. Phase 2 only
- * has `TextNode`; future phases extend the union (group / file / link /
- * image). Store actions are typed against this union so adding a variant
- * doesn't ripple changes through every caller.
+ * The node shape the runtime store + renderer operate on. Narrowed to
+ * `TextNode` because the canvas only draws text nodes today; the on-disk
+ * `Node` union (see aimap.ts) is wider. Re-exported as `AimapFileNode` above
+ * for code that needs the full union. Widen this in Phase 6/7.
  */
 export type AimapNode = TextNode;
 
@@ -113,16 +106,10 @@ export const useNodes = create<NodesState>((set) => ({
 }));
 
 /**
- * Mint a fresh node id. Prefer `crypto.randomUUID` when available (modern
- * browsers + Node 19+), fall back to a short random suffix elsewhere so
- * jsdom + older runtimes still work.
- *
- * Phase 5 replaces this with the canonical uuid-v4 helper exported from
- * `src/shared/aimap.ts` once that file lands.
+ * Mint a fresh node id. Delegates to the canonical `makeId` helper in
+ * `src/shared/aimap.ts` (uuid-v4 when available, short-suffix fallback for
+ * jsdom + older runtimes).
  */
 export function makeNodeId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `n_${Math.random().toString(36).slice(2, 10)}`;
+  return makeId("n");
 }

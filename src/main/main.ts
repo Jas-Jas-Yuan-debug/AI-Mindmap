@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import * as path from "path";
+import { registerFileHandlers } from "./ipc/files.js";
 
 const DEV_URL = process.env.AIM_DEV_URL;
 const isDev = !!DEV_URL;
@@ -32,7 +33,10 @@ function createMainWindow(): void {
   });
 }
 
-app.whenReady().then(createMainWindow);
+app.whenReady().then(() => {
+  registerFileHandlers();
+  createMainWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

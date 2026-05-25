@@ -393,8 +393,8 @@ export interface ChatThread {
 }
 ```
 
-### Phase 5 file rename
-The Phase 0 module is currently `src/shared/jsoncanvas.ts` with the now-superseded JSON Canvas 1.0 schema. Phase 5 (or any earlier PR that touches it) renames the module to `src/shared/aimap.ts`, replaces the schema with the `AimapFile` definition above (adding `formatVersion`, `meta`, `viewport`, and `chats` at root, plus the `ImageNode` type and `parentId` on `NodeBase`), and writes the Zod validators. Whoever takes that phase should also update `src/shared/platform.ts` — the `files` methods already reference `AimapFile` here in the plan, so the rename brings code in line with the spec.
+### Phase 5 file rename — 🟢 DONE (PR #32)
+~~The Phase 0 module is currently `src/shared/jsoncanvas.ts` with the now-superseded JSON Canvas 1.0 schema.~~ **Done in Phase 5 PR 1/3 (PR #32):** `git mv src/shared/jsoncanvas.ts → src/shared/aimap.ts` (history preserved), schema replaced with the `AimapFile` definition above (`formatVersion`, `meta`, `viewport`, `chats` at root, `ImageNode`, `parentId` on `NodeBase`), Zod validators added (`parseAimapFile`). `src/shared/platform.ts` now references `AimapFile`. The runtime stores `src/renderer/store/nodes.ts` + `edges.ts` import & re-export the canonical node/edge types from `aimap.ts` (single source of truth); `AimapNode` stays narrowed to `TextNode` until the renderer learns to draw the other variants (Phase 6/7), while the FILE schema defines all variants for forward-compat.
 
 ---
 
@@ -711,13 +711,17 @@ Phase 4 PR 1 (#29, this PR) shipped the **undo/redo foundation**: a snapshot-bas
 - Migration framework in `src/shared/migrations/` (empty for V1, scaffolded for future).
 - Error handling: corrupt file → friendly error dialog, doesn't crash.
 
-**Exit criteria**
-- [ ] Round-trip: build a 50-node canvas, save, reopen, every field byte-identical (modulo timestamps)
-- [ ] Autosave debounce works (rapid edits don't hammer disk)
-- [ ] Corrupt JSON shows error, doesn't crash; partial-corrupt (valid JSON, fails Zod) shows specific field error
-- [ ] Recent files survive app restart
+**Phase 5 status: engine landed in PR #32.** Open: file menu + disk round-trip (sibling B), autosave + dirty + errors (sibling C).
 
-**Estimated PRs:** 3–4
+The engine (PR #32, "PR 1/3") shipped: `src/shared/aimap.ts` (canonical schema + Zod + `parseAimapFile`), `src/shared/serialize.ts` (`toAimapFile`/`fromAimapFile`, in-memory round-trip), `src/shared/migrations/index.ts` (`migrate`, empty V1 registry, throws on newer/unknown version), `src/shared/ipc.ts` (`files:*` channel names), `Platform.files` implemented in `src/platform/electron.ts` + `src/platform/web.ts`, IPC handlers in `src/main/ipc/files.ts` wired into `main.ts` + `preload.ts`. Validation runs in the platform adapters (the CommonJS main bundle can't import the ESM Zod schema): save refuses invalid docs, open migrates+validates. 22 unit tests in `aimap.test.ts`.
+
+**Exit criteria**
+- [ ] Round-trip: build a 50-node canvas, save, reopen, every field byte-identical (modulo timestamps) — *serialize-layer round-trip done + tested in PR #32 (`fromAimapFile(toAimapFile(x))` + Zod, incl. a 50-node case); the on-disk save→reopen path is completed by sibling B's file menu.*
+- [ ] Autosave debounce works (rapid edits don't hammer disk) — *sibling C*
+- [ ] Corrupt JSON shows error, doesn't crash; partial-corrupt (valid JSON, fails Zod) shows specific field error — *engine ready in PR #32 (`migrate` throws `MigrationError` on corrupt JSON; `parseAimapFile` returns structured `issues[]` with field paths); the error-dialog UI is sibling C.*
+- [ ] Recent files survive app restart — *PR #32 persists recents to a JSON file in Electron `userData`; the File-menu recent list UI is sibling B.*
+
+**Estimated PRs:** 3–4 (PR #32 = engine, PR 1/3)
 
 ---
 
@@ -908,7 +912,7 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-24
+Last updated: 2026-05-24 (Phase 5 persistence engine landed)
 
 History:
 - 2026-05-24: initial version
@@ -930,3 +934,4 @@ History:
 - 2026-05-24: PR #29 — Phase 4 (PR 1/3): undo/redo history foundation (snapshot `store/history.ts` capped at 200, `capture`/`transact`/`undo`/`redo`) + `useHistoryKeys` (Cmd/Ctrl+Z, Shift+Z, Y) + discrete-action history capture (create/delete/color/edge-add/text/edge-label). Ticked §6 Phase 4 "undo stack capped" criterion.
 - 2026-05-24: PR #30 — Phase 4 (PR 2/3): multi-select (lasso + shift-click + cmd-A) + group move + move/resize history capture
 - 2026-05-24: PR #31 — Phase 4 (PR 3/3): in-app clipboard cut/copy/paste + id remap (`clipboard.ts` copySelection/pasteClipboard/remapSubgraph, `useClipboardKeys` Cmd/Ctrl+C/X/V wired in Canvas.tsx, cut+paste each one undo step via `transact`, 14 tests). Closes §6 Phase 4 cut+paste + paste-under-undo criteria → Phase 4 4/4 🟢 done.
+- 2026-05-24: PR #32 — Phase 5 (PR 1/3): persistence ENGINE. Renamed `src/shared/jsoncanvas.ts` → `aimap.ts` (history preserved) with the canonical `AimapFile` schema + Zod validators (`parseAimapFile` → structured `{ok,error,issues}`); `serialize.ts` (`toAimapFile`/`fromAimapFile`, in-memory round-trip); `migrations/index.ts` (`migrate`, empty V1 registry, throws `MigrationError` on newer/unknown/invalid); `ipc.ts` (`files:*` channels). `Platform.files` implemented for Electron (IPC → `src/main/ipc/files.ts`, `fs/promises`, recents persisted in `userData`) + Web (File System Access API + download/upload fallback, sessionStorage recents). Stores `nodes.ts`/`edges.ts` now re-export canonical types from `aimap.ts`; `AimapNode` stays `=TextNode` (renderer only draws text until Phase 6/7). Validation lives in the platform adapters (CommonJS main can't import the ESM Zod schema). 22 unit tests. Did NOT tick §6 disk-round-trip exit criteria — those need the file-menu (sibling B) + dialogs (sibling C).

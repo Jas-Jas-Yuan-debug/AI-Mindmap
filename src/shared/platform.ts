@@ -4,14 +4,28 @@
 
 export type PlatformKind = "electron" | "web";
 
+/**
+ * Opaque handle to an open document. The renderer treats it as a token to
+ * pass back into `saveCanvas`. Platform-specific internals:
+ *   - Electron: `path` holds the absolute filesystem path.
+ *   - Web: `id` correlates to a `FileSystemFileHandle` cached in the web
+ *     platform adapter (the live handle can't be serialized, so we key it by
+ *     id). `path` is undefined on web.
+ */
 export interface FileHandle {
-  // Opaque, platform-specific. Renderer treats as a token to pass back into save().
   readonly _tag: "FileHandle";
+  /** Human-readable name shown in the title bar / recent list, e.g. "notes.aimap". */
   readonly displayName: string;
+  /** Absolute path on Electron; undefined on web. */
+  readonly path?: string;
+  /** Web-only correlation id for the cached FileSystemFileHandle. */
+  readonly id?: string;
 }
 
 export interface RecentFile {
   displayName: string;
+  /** Absolute path (Electron). Undefined on web (no stable path). */
+  path?: string;
   lastOpenedAt: string;
 }
 
@@ -37,16 +51,16 @@ export interface Settings {
   recentFiles: RecentFile[];
 }
 
-import type { JSONCanvas } from "./jsoncanvas.js";
+import type { AimapFile } from "./aimap.js";
 
 export interface Platform {
   readonly kind: PlatformKind;
 
   files: {
-    openCanvas(): Promise<{ handle: FileHandle; data: JSONCanvas } | null>;
-    saveCanvas(handle: FileHandle, data: JSONCanvas): Promise<void>;
+    openCanvas(): Promise<{ handle: FileHandle; data: AimapFile } | null>;
+    saveCanvas(handle: FileHandle, data: AimapFile): Promise<void>;
     saveCanvasAs(
-      data: JSONCanvas,
+      data: AimapFile,
       suggestedName?: string,
     ): Promise<FileHandle | null>;
     recentFiles(): Promise<RecentFile[]>;
