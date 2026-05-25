@@ -6,7 +6,10 @@ import { ZoomControls } from "./ZoomControls.js";
 import { UndoRedo } from "./UndoRedo.js";
 import { HelpButton } from "./HelpButton.js";
 import { StatusBar } from "./StatusBar.js";
+import { MessageSquare } from "lucide-react";
+import { Island } from "./Island.js";
 import { usePanels } from "../store/panels.js";
+import { useChat } from "../store/chat.js";
 
 // The floating chrome layer that sits over the canvas. Mirrors Excalidraw's
 // LayerUI / FixedSideContainer pattern: wrapper has pointer-events: none so
@@ -14,6 +17,7 @@ import { usePanels } from "../store/panels.js";
 // events on itself.
 export function Chrome() {
   const showCheatSheet = usePanels((s) => s.show);
+  const toggleChat = useChat((s) => s.toggle);
   return (
     <div className="aim-chrome" aria-label="App chrome">
       <div className="aim-chrome__row aim-chrome__row--top">
@@ -23,7 +27,18 @@ export function Chrome() {
         <div className="aim-chrome__col aim-chrome__col--center">
           <Toolbar />
         </div>
-        <div className="aim-chrome__col aim-chrome__col--end">
+        <div className="aim-chrome__col aim-chrome__col--end aim-chrome__col--gap">
+          <Island ariaLabel="Chat">
+            <button
+              type="button"
+              className="aim-icon-button aim-icon-button--lg"
+              aria-label="Toggle AI chat"
+              title="AI chat"
+              onClick={toggleChat}
+            >
+              <MessageSquare size={16} />
+            </button>
+          </Island>
           <ThemeToggle />
         </div>
       </div>
