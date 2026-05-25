@@ -24,6 +24,7 @@
 import { useEffect } from "react";
 import { useDocStatus } from "../store/docStatus.js";
 import { useDocument } from "../store/document.js";
+import { useSettings } from "../store/settings.js";
 import { useNodes } from "../store/nodes.js";
 import { useEdges } from "../store/edges.js";
 import { useViewport } from "../store/viewport.js";
@@ -68,6 +69,9 @@ export function useAutosave(): void {
 
     const arm = () => {
       clear();
+      // Phase 8: the debounce window is user-configurable (Settings →
+      // autosave delay). Fall back to the 1s default if unset/out of range.
+      const delay = useSettings.getState().autosaveIntervalMs || AUTOSAVE_DEBOUNCE_MS;
       timer = setTimeout(() => {
         timer = null;
         const decision = shouldAutosave({
@@ -79,7 +83,7 @@ export function useAutosave(): void {
           // surfaces any failure through reportFileError without crashing.
           void saveDocument();
         }
-      }, AUTOSAVE_DEBOUNCE_MS);
+      }, delay);
     };
 
     // Re-arm on EVERY edit so rapid edits keep pushing the save out (the

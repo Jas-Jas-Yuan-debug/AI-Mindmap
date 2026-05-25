@@ -8,7 +8,12 @@ import { installDevHelpers } from "./dev/aimPushCards.js";
 import { installEdgeDevHelpers } from "./dev/aimPushEdges.js";
 import { installGroupDevHelpers } from "./dev/aimAddGroup.js";
 import { installDocStatusSubscriptions } from "./store/docStatus.js";
+import { initThemePrePaint } from "./theme/applyTheme.js";
 import "./ui/theme.css";
+
+// Phase 8: apply the persisted theme synchronously, before React mounts, so
+// the first paint is already in the right theme (no light→dark flash).
+initThemePrePaint();
 
 declare global {
   // Set by preload.ts (Electron) via contextBridge. Undefined on web.

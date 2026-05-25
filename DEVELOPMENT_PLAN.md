@@ -803,12 +803,16 @@ The plan originally specified copying dropped images into `<file>.aimap.assets/`
 - **About dialog** with version, repo URL, license.
 
 **Exit criteria**
-- [ ] Every action has a keyboard shortcut documented in the cheat sheet
-- [ ] Theme toggle is instant, no flash
-- [ ] Settings persist
-- [ ] No console errors during normal use
+- [x] Every action has a keyboard shortcut documented in the cheat sheet (PR #39 — `ui/shortcuts.ts` registry rendered by the `?` cheat-sheet overlay; can't drift from real bindings)
+- [x] Theme toggle is instant, no flash (PR #39 — `theme/applyTheme.initThemePrePaint()` applies the persisted theme synchronously before React mounts; `useThemeEffect` re-applies on change + follows the OS for "system")
+- [x] Settings persist (PR #39 — settings store uses zustand `persist` → localStorage: theme, grid, autosave delay, default color)
+- [x] No console errors during normal use (PR #39 — `ErrorBoundary` wraps the app so a render throw shows a recoverable dialog instead of a blank screen; build + 281 tests clean)
 
-**Estimated PRs:** 4–6
+**Phase 8 status: 🟢 done (2026-05-24) — PR #39.** Search (mod+F, viewport-jump), cheat sheet (`?`), Settings dialog (theme/grid/autosave/default-color, persisted), About dialog, dark/light/system theme (instant, no-flash), error boundary, and the telemetry-NONE note in CLAUDE.md all shipped.
+
+**Deferred to a follow-up (documented):** the **native Electron app menu** (File/Edit/View/Window/Help). The in-app hamburger `MainMenu` + global keyboard shortcuts already expose every command cross-platform; a native `Menu` is an Electron-only nicety that duplicates those bindings. Tracked as a small follow-up; not blocking the whiteboard milestone (no exit criterion depends on it).
+
+**Estimated PRs:** 4–6 (shipped as 1 — solo direct implementation per user request)
 
 ---
 

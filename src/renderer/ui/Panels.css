@@ -1,0 +1,149 @@
+/* Phase 8 overlay panels: cheat sheet, settings, about. Builds on Modal.css
+   (.aim-modal*) with a few panel-specific layouts. Theme tokens only. */
+
+.aim-modal--wide {
+  max-width: 44rem;
+}
+
+/* Cheat sheet ------------------------------------------------------------- */
+.aim-cheatsheet__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--aim-container-padding);
+}
+
+.aim-cheatsheet__group-title {
+  margin: 0 0 var(--aim-gap-sm) 0;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--aim-color-text-muted);
+}
+
+.aim-cheatsheet__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.aim-cheatsheet__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aim-gap);
+}
+
+.aim-cheatsheet__keys {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: var(--aim-color-text);
+}
+
+.aim-cheatsheet__desc {
+  margin: 0;
+  color: var(--aim-color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Settings ---------------------------------------------------------------- */
+.aim-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aim-gap);
+  font-size: 0.9rem;
+}
+
+.aim-settings__row select,
+.aim-settings__row input[type="number"] {
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--aim-color-border);
+  border-radius: var(--aim-border-radius-md);
+  background: var(--aim-color-island-bg);
+  color: var(--aim-color-text);
+  min-width: 9rem;
+}
+
+.aim-settings__swatches {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.aim-swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.aim-swatch.is-active {
+  border-color: var(--aim-color-primary);
+  outline: 1px solid var(--aim-color-primary);
+}
+
+.aim-swatch--none {
+  background: var(--aim-color-island-bg);
+  border: 2px dashed var(--aim-color-border);
+  position: relative;
+}
+
+.aim-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--aim-color-primary);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+/* Search bar -------------------------------------------------------------- */
+.aim-search {
+  position: fixed;
+  top: calc(var(--aim-container-padding) + 3.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: calc(var(--aim-z-chrome) + 10);
+  display: flex;
+  align-items: center;
+  gap: var(--aim-gap-sm);
+  background: var(--aim-color-island-bg);
+  color: var(--aim-color-text);
+  box-shadow: var(--aim-shadow-island);
+  border-radius: var(--aim-border-radius);
+  padding: 0.375rem 0.5rem;
+  font-family: var(--aim-font-ui);
+}
+
+.aim-search input {
+  font: inherit;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--aim-color-text);
+  min-width: 16rem;
+}
+
+.aim-search__count {
+  font-size: 0.8125rem;
+  color: var(--aim-color-text-muted);
+  white-space: nowrap;
+}
+
+.aim-search__btn {
+  border: none;
+  background: transparent;
+  color: var(--aim-color-text);
+  cursor: pointer;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--aim-border-radius-md);
+}
+
+.aim-search__btn:hover {
+  background: var(--aim-color-surface-high);
+}

@@ -10,10 +10,12 @@ import {
   Save,
   SaveAll,
 } from "lucide-react";
+import { Settings as SettingsIcon, Keyboard, Info } from "lucide-react";
 import { Island } from "./Island.js";
 import { useSettings } from "../store/settings.js";
 import { useViewport } from "../store/viewport.js";
 import { useDocument } from "../store/document.js";
+import { usePanels } from "../store/panels.js";
 import {
   newDocument,
   openDocument,
@@ -62,6 +64,7 @@ export function MainMenu({ onClick }: MainMenuProps) {
   const gridVisible = useSettings((s) => s.gridVisible);
   const toggleGrid = useSettings((s) => s.toggleGrid);
   const fitToContent = useViewport((s) => s.fitToContent);
+  const showPanel = usePanels((s) => s.show);
   const recentFiles = useDocument((s) => s.recentFiles);
   const refreshRecentFiles = useDocument((s) => s.refreshRecentFiles);
 
@@ -275,6 +278,45 @@ export function MainMenu({ onClick }: MainMenuProps) {
               <Maximize2 size={14} />
             </span>
             <span className="aim-mainmenu__label">Fit to Content</span>
+          </button>
+
+          <div className="aim-mainmenu__divider" role="separator" />
+
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            onClick={run(() => showPanel("settings"))}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <SettingsIcon size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Settings…</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            onClick={run(() => showPanel("cheatsheet"))}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Keyboard size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Keyboard Shortcuts</span>
+            <span className="aim-mainmenu__shortcut" aria-hidden="true">
+              ?
+            </span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            onClick={run(() => showPanel("about"))}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Info size={14} />
+            </span>
+            <span className="aim-mainmenu__label">About</span>
           </button>
         </div>
       ) : null}
