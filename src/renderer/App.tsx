@@ -5,9 +5,16 @@ import { GroupOverlayLayer } from "./ui/GroupOverlayLayer.js";
 import { EdgeLabelOverlayLayer } from "./ui/EdgeLabelOverlayLayer.js";
 import { ErrorDialog } from "./ui/ErrorDialog.js";
 import { UnsavedChangesDialog } from "./ui/UnsavedChangesDialog.js";
+import { ErrorBoundary } from "./ui/ErrorBoundary.js";
+import { CheatSheet } from "./ui/CheatSheet.js";
+import { SettingsDialog } from "./ui/SettingsDialog.js";
+import { AboutDialog } from "./ui/AboutDialog.js";
+import { SearchBar } from "./ui/SearchBar.js";
 import { useAutosave } from "./persistence/useAutosave.js";
 import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
 import { useImportDnd } from "./import/useImportDnd.js";
+import { useThemeEffect } from "./theme/useThemeEffect.js";
+import { useGlobalShortcuts } from "./ui/useGlobalShortcuts.js";
 
 // Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
 // component so the hooks have a render context without adding state to App.
@@ -18,6 +25,10 @@ function DocumentLifecycle() {
   useDocumentTitle();
   // Phase 7: window-level drag-drop (image/file) + paste (image/URL) import.
   useImportDnd();
+  // Phase 8: keep data-theme in sync with the persisted theme setting
+  // (system-following + live OS changes), and the ?/mod+F global keybinds.
+  useThemeEffect();
+  useGlobalShortcuts();
   return null;
 }
 
@@ -41,21 +52,28 @@ function DocumentLifecycle() {
 // canvas/ directory and the Zustand slices.
 export default function App() {
   return (
-    <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <Canvas />
-      <NodeOverlayLayer />
-      {/* Phase 6 PR 3/3 (sibling C): group label-edit (double-click header) +
-          group right-click color picker. Groups-only; text overlays stay in
-          NodeOverlayLayer. */}
-      <GroupOverlayLayer />
-      <EdgeLabelOverlayLayer />
-      <Chrome />
-      {/* Phase 5 PR 3/3 (sibling C): autosave + dirty title, and the two file
-          dialogs (unsaved-changes prompt + friendly error). The dialogs render
-          nothing until their window seam is invoked. */}
-      <DocumentLifecycle />
-      <UnsavedChangesDialog />
-      <ErrorDialog />
-    </div>
+    <ErrorBoundary>
+      <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
+        <Canvas />
+        <NodeOverlayLayer />
+        {/* Phase 6 PR 3/3 (sibling C): group label-edit (double-click header) +
+            group right-click color picker. Groups-only; text overlays stay in
+            NodeOverlayLayer. */}
+        <GroupOverlayLayer />
+        <EdgeLabelOverlayLayer />
+        <Chrome />
+        {/* Phase 8: search bar (mod+F) + cheat sheet (?) + settings/about. */}
+        <SearchBar />
+        <CheatSheet />
+        <SettingsDialog />
+        <AboutDialog />
+        {/* Phase 5 PR 3/3 (sibling C): autosave + dirty title, and the two file
+            dialogs (unsaved-changes prompt + friendly error). The dialogs render
+            nothing until their window seam is invoked. */}
+        <DocumentLifecycle />
+        <UnsavedChangesDialog />
+        <ErrorDialog />
+      </div>
+    </ErrorBoundary>
   );
 }

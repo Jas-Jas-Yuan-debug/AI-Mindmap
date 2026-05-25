@@ -6,12 +6,14 @@ import { ZoomControls } from "./ZoomControls.js";
 import { UndoRedo } from "./UndoRedo.js";
 import { HelpButton } from "./HelpButton.js";
 import { StatusBar } from "./StatusBar.js";
+import { usePanels } from "../store/panels.js";
 
 // The floating chrome layer that sits over the canvas. Mirrors Excalidraw's
 // LayerUI / FixedSideContainer pattern: wrapper has pointer-events: none so
 // the canvas underneath stays interactive; each Island re-enables pointer
 // events on itself.
 export function Chrome() {
+  const showCheatSheet = usePanels((s) => s.show);
   return (
     <div className="aim-chrome" aria-label="App chrome">
       <div className="aim-chrome__row aim-chrome__row--top">
@@ -34,7 +36,7 @@ export function Chrome() {
         <div className="aim-chrome__col aim-chrome__col--center" />
         <div className="aim-chrome__col aim-chrome__col--end aim-chrome__col--gap">
           <StatusBar />
-          <HelpButton />
+          <HelpButton onClick={() => showCheatSheet("cheatsheet")} />
         </div>
       </div>
     </div>

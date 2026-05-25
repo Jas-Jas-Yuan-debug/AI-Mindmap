@@ -289,3 +289,12 @@ Since either agent can self-merge, the merge step is where mistakes compound. Be
 3. Confirm no other agent's open PR touches the same files (if it does — comment there first).
 4. Confirm tests/CI pass locally.
 5. Merge, then delete the branch (local + remote) immediately.
+
+## Telemetry — NONE (Phase 8)
+
+AI-Mindmap collects **no telemetry**. The app does not phone home, has no
+analytics, no crash reporting, no usage tracking, and no accounts. All state is
+local: documents on disk, preferences in `localStorage` (web) / userData
+(Electron). Any future feature that would send data off-device requires a §1
+plan amendment AND must be opt-in. This is a product invariant (see
+`DEVELOPMENT_PLAN.md` §2 "Local-first" + §1 "What we are NOT building — ever").
