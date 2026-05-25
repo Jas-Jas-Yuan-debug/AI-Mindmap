@@ -678,17 +678,17 @@ Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLay
 - **Grouping into a transaction:** moving 50 selected nodes is 1 undo step, not 50.
 - **Align/distribute** (bonus, ship if time permits): align left/center/right/top/middle/bottom, distribute horizontally/vertically.
 
-**Phase 4 status: 2 / 4 criteria met.** Open: full undo/redo action coverage (move/resize now captured in PR #N; paste pending in sibling C), cut+paste subgraph (sibling C).
+**Phase 4 status: 2 / 4 criteria met.** Open: full undo/redo action coverage (move/resize now captured in PR #30; paste pending in sibling C), cut+paste subgraph (sibling C).
 
 Phase 4 PR 1 (#29, this PR) shipped the **undo/redo foundation**: a snapshot-based `src/renderer/store/history.ts` slice (`capture()` / `transact(fn)` / `undo()` / `redo()` / `clear()`, past+future each capped at 200 snapshots, future cleared on any new capture), document-level keyboard shortcuts (`useHistoryKeys` — Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y redo, suppressed while typing in inputs/textareas), and history capture retrofitted onto every DISCRETE mutation: create (useCreate), delete-cascade (useDeleteKey, one `transact` for nodes+edges+selected-edge), color (ColorPicker, node + edge), edge-add (useDrawEdge), text edit (NodeOverlay), and edge-label edit (EdgeLabelOverlayLayer). Move/resize history capture is sibling B's scope (B is rewriting drag for group-move); paste is sibling C's. `transact(fn)` is the seam B wraps group-move in and C wraps paste in, so each lands as one undo step. undo/redo infra + create/delete/color/edge/text/label capture closed by PR #29; move/resize (sibling B) and paste (sibling C) complete the action-type coverage.
 
 **Exit criteria**
-- [x] Lasso select correctly hit-tests at any zoom level (closed by PR #N — lasso hit-tests in canvas coords, zoom-independent; `rectsIntersect` / `normalizeLasso` / `nodesInLasso` unit-tested, 21 cases incl. edge-touch, containment, zoom-invariance)
-- [ ] Undo/redo is correct after every action type (move, resize, edit, color, edge add/delete, paste) — *partial: infra + create/delete/color/edge-add/edge-delete/text/label capture landed in PR #29; move/resize capture landed in PR #N; paste (sibling C) still pending before this can be ticked*
+- [x] Lasso select correctly hit-tests at any zoom level (closed by PR #30 — lasso hit-tests in canvas coords, zoom-independent; `rectsIntersect` / `normalizeLasso` / `nodesInLasso` unit-tested, 21 cases incl. edge-touch, containment, zoom-invariance)
+- [ ] Undo/redo is correct after every action type (move, resize, edit, color, edge add/delete, paste) — *partial: infra + create/delete/color/edge-add/edge-delete/text/label capture landed in PR #29; move/resize capture landed in PR #30; paste (sibling C) still pending before this can be ticked*
 - [ ] Cut+paste of a subgraph preserves internal edges with remapped IDs
 - [x] Memory: undo stack capped, no leaks (closed by PR #29 — past/future capped at 200 snapshots, future cleared on new action; snapshots are copy-by-reference over immutable store arrays so no per-snapshot deep-copy growth)
 
-**Phase 4 status block:** undo/redo foundation landed in PR 1 (sibling A). Multi-select (lasso drag on empty canvas + Shift+click toggle + Cmd/Ctrl+A select-all) and **group move** (drag any selected node → all selected nodes move together, the whole gesture one undo step) landed in PR #N (Phase 4 PR 2/3). PR 2 also wired the move/resize history capture sibling A left to this PR: `useHistory.capture()` fires once at the start of each move drag (`onDragStart`) and each resize-handle drag, so every gesture collapses into a single undo entry. Lasso hit-test is a pure module (`canvas/interactions/lasso.ts`) operating in canvas space, making it zoom-independent.
+**Phase 4 status block:** undo/redo foundation landed in PR 1 (sibling A). Multi-select (lasso drag on empty canvas + Shift+click toggle + Cmd/Ctrl+A select-all) and **group move** (drag any selected node → all selected nodes move together, the whole gesture one undo step) landed in PR #30 (Phase 4 PR 2/3). PR 2 also wired the move/resize history capture sibling A left to this PR: `useHistory.capture()` fires once at the start of each move drag (`onDragStart`) and each resize-handle drag, so every gesture collapses into a single undo entry. Lasso hit-test is a pure module (`canvas/interactions/lasso.ts`) operating in canvas space, making it zoom-independent.
 
 **Estimated PRs:** 4–5
 
@@ -926,4 +926,4 @@ History:
 - 2026-05-24: PR #27 — Phase 3 drag-to-connect from anchor + edge label inline edit
 - 2026-05-24: PR #28 — Phase 3 (PR 3/3): edge selection + Delete key + ColorPicker (nodes + edges) + 100×200 store-level perf test + `__aimPushEdges` dev helper
 - 2026-05-24: PR #29 — Phase 4 (PR 1/3): undo/redo history foundation (snapshot `store/history.ts` capped at 200, `capture`/`transact`/`undo`/`redo`) + `useHistoryKeys` (Cmd/Ctrl+Z, Shift+Z, Y) + discrete-action history capture (create/delete/color/edge-add/text/edge-label). Ticked §6 Phase 4 "undo stack capped" criterion.
-- 2026-05-24: PR #N — Phase 4 (PR 2/3): multi-select (lasso + shift-click + cmd-A) + group move + move/resize history capture
+- 2026-05-24: PR #30 — Phase 4 (PR 2/3): multi-select (lasso + shift-click + cmd-A) + group move + move/resize history capture
