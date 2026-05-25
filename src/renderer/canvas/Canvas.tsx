@@ -9,6 +9,7 @@ import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
 import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
+import { LassoLayer } from "./LassoLayer.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
 import { AnchorDots } from "./nodes/AnchorDots.js";
 import { EdgesLayer } from "./edges/EdgesLayer.js";
@@ -21,6 +22,8 @@ import { useZoom } from "./interactions/useZoom.js";
 import { useDeleteKey } from "./interactions/useDeleteKey.js";
 import { useHistoryKeys } from "./interactions/useHistoryKeys.js";
 import { useCreate } from "./interactions/useCreate.js";
+import { useLasso } from "./interactions/useLasso.js";
+import { useSelectAllKey } from "./interactions/useSelectAllKey.js";
 import { useEdgeSelectClick } from "./interactions/useEdgeSelectClick.js";
 import { useEdgeContextMenu } from "./interactions/useEdgeContextMenu.js";
 
@@ -85,6 +88,10 @@ export function Canvas() {
   useDeleteKey();
   // Phase 4 PR 1: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z / Cmd/Ctrl+Y redo.
   useHistoryKeys();
+  // Phase 4 PR 2: Cmd/Ctrl+A select-all (document-level keydown).
+  useSelectAllKey();
+  // Phase 4 PR 2: lasso/marquee selection on empty-canvas drag.
+  const lasso = useLasso();
   const create = useCreate();
   // Phase 3 PR 2: drag-from-anchor → new edge. Composed with usePan in
   // onStageMouseDown — anchor mousedown short-circuits pan.
@@ -104,6 +111,17 @@ export function Canvas() {
   // selection. Otherwise fall through to pan + empty-canvas-click logic.
   const onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     if (draw.onMouseDown(e)) return;
+    // Phase 4: lasso owns empty-canvas single-click-drag (no space held).
+    // When it claims the gesture we skip pan AND the empty-canvas clear —
+    // the lasso's mouseup sets the resulting selection (and clears it if the
+    // marquee caught nothing). Pan still owns space-held drags because the
+    // lasso bails when spacebar is down.
+    if (lasso.onMouseDown(e)) {
+      // Still drop edge selection so a marquee on empty canvas resets the
+      // edge focus, matching the previous empty-mousedown behaviour.
+      useEdgeSelection.getState().clear();
+      return;
+    }
     pan.onMouseDown(e);
     if (e.target === e.target.getStage()) {
       useSelection.getState().clear();
@@ -117,11 +135,13 @@ export function Canvas() {
 
   const onStageMouseMove = (e: KonvaEventObject<MouseEvent>) => {
     draw.onMouseMove(e);
+    lasso.onMouseMove(e);
     pan.onMouseMove(e);
   };
 
   const onStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
     draw.onMouseUp(e);
+    lasso.onMouseUp(e);
     pan.onMouseUp(e);
   };
 
@@ -130,6 +150,8 @@ export function Canvas() {
     // mouseup outside the window won't reach us, and a "stuck" ghost would
     // be confusing.
     draw.cancel();
+    // Commit (and clear) any in-flight lasso on leave for the same reason.
+    lasso.onMouseUp(e);
     pan.onMouseLeave(e);
   };
 
@@ -172,8 +194,18 @@ export function Canvas() {
               <TextNodeCard
                 node={n}
                 selected={selected}
-                onSelect={() => {
-                  useSelection.getState().select(n.id);
+                onSelect={(e) => {
+                  // Phase 4: Shift+click toggles the node in/out of a multi-
+                  // selection; a plain click single-selects (replacing the
+                  // prior selection). The drag handler in TextNode also
+                  // single-selects an unselected node on drag-start, so a
+                  // shift-click that ADDS a node still lets the subsequent
+                  // group drag move the whole set.
+                  if (e.evt.shiftKey) {
+                    useSelection.getState().toggle(n.id);
+                  } else {
+                    useSelection.getState().select(n.id);
+                  }
                 }}
               />
               {/* AnchorDots use local coords (positions returned by
@@ -190,6 +222,12 @@ export function Canvas() {
       </Layer>
       <Layer listening={false}>
         <Origin />
+      </Layer>
+      {/* Phase 4: lasso marquee drawn on top of everything, in canvas
+          coords (inside the Stage transform) so it pans + scales with the
+          content. listening={false} so it never steals pointer events. */}
+      <Layer listening={false} name="lasso">
+        <LassoLayer rect={lasso.rect} />
       </Layer>
     </Stage>
   );

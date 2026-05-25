@@ -27,11 +27,13 @@
 // handle has `e.target` set to the card Group (or the handle Rect), so the
 // Stage doesn't pan. Verified by reading usePan.onMouseDown.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Rect } from "react-konva";
 import type { Color, PresetColor, TextNode } from "../../store/nodes.js";
 import { useNodes } from "../../store/nodes.js";
+import { useSelection } from "../../store/selection.js";
+import { useHistory } from "../../store/history.js";
 import { useViewport } from "../../store/viewport.js";
 import {
   computeResize,
@@ -144,12 +146,60 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
       }
     : {};
 
-  // --- Drag handlers -----------------------------------------------------
-  // Konva's draggable does the visual move; we mirror it into the store on
-  // each tick so the rest of the app (overlays, edges in Phase 3) sees the
-  // node's position live. The store update is cheap (one shallow array
-  // copy), and Konva already coalesces drag events to roughly one per
-  // animation frame.
+  // --- Drag handlers (Phase 4: group move) -------------------------------
+  // Konva's draggable does the visual move of THIS node's Group; we mirror it
+  // into the store on each tick and, when the node is part of a multi-
+  // selection, apply the same delta to every other selected node so the whole
+  // selection moves together (plan §6 Phase 4 "drag any selected node → all
+  // selected nodes move together").
+  //
+  // We snapshot, on drag START, the dragged node's origin plus the start (x,y)
+  // of every OTHER selected node. On each move tick we compute the delta from
+  // the dragged node's origin and add it to each peer's recorded start — never
+  // accumulating off the live store, which would compound rounding drift.
+  //
+  // History: one undo step per gesture. We call `capture()` exactly once at
+  // drag start (NOT per tick), so the entire move collapses into a single
+  // undo entry regardless of how many nodes moved or how long the drag ran.
+  const dragGroupRef = useRef<{
+    originX: number;
+    originY: number;
+    peers: { id: string; x: number; y: number }[];
+  } | null>(null);
+
+  const onDragStart = (e: KonvaEventObject<DragEvent>) => {
+    // Snapshot for the undo stack before any mutation lands.
+    useHistory.getState().capture();
+
+    const sel = useSelection.getState();
+    // If the user grabs a node that isn't selected, treat the drag as a
+    // fresh single-select of that node (Excalidraw behaviour) — only it
+    // moves. If it IS selected, keep the whole selection and move it as a
+    // group.
+    let peerIds: string[];
+    if (!sel.isSelected(node.id)) {
+      sel.select(node.id);
+      peerIds = [];
+    } else {
+      peerIds = Object.keys(sel.ids).filter((id) => id !== node.id);
+    }
+
+    const liveNodes = useNodes.getState().nodes;
+    const peers = peerIds
+      .map((id) => {
+        const n = liveNodes.find((nn) => nn.id === id);
+        return n ? { id, x: n.x, y: n.y } : null;
+      })
+      .filter((p): p is { id: string; x: number; y: number } => p !== null);
+
+    dragGroupRef.current = {
+      // The Group's origin at drag start is the node's stored (x,y).
+      originX: e.target.x(),
+      originY: e.target.y(),
+      peers,
+    };
+  };
+
   const onDragMove = (e: KonvaEventObject<DragEvent>) => {
     // For the card Group, e.target IS the Group, so its x/y is the new
     // position in canvas space (parent Layer has no transform of its own;
@@ -157,6 +207,21 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
     const x = Math.round(e.target.x());
     const y = Math.round(e.target.y());
     useNodes.getState().moveNode(node.id, x, y);
+
+    // Apply the same delta to every peer in the multi-selection.
+    const g = dragGroupRef.current;
+    if (g && g.peers.length > 0) {
+      const dx = e.target.x() - g.originX;
+      const dy = e.target.y() - g.originY;
+      const move = useNodes.getState().moveNode;
+      for (const p of g.peers) {
+        move(p.id, Math.round(p.x + dx), Math.round(p.y + dy));
+      }
+    }
+  };
+
+  const onDragEnd = () => {
+    dragGroupRef.current = null;
   };
 
   // --- Handle drag math --------------------------------------------------
@@ -214,7 +279,9 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
       // a closure over props.
       id={node.id}
       draggable
+      onDragStart={onDragStart}
       onDragMove={onDragMove}
+      onDragEnd={onDragEnd}
       // Hover tracking for Phase 3 anchor dots. Konva's pointer enter /
       // leave are dispatched separately from mouse down/move/up, so this
       // doesn't interfere with the draggable Group above.
@@ -263,6 +330,11 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
                 strokeWidth={HANDLE_STROKE_WIDTH}
                 strokeScaleEnabled={false}
                 draggable
+                // History: capture once at the START of a resize gesture so
+                // the whole resize is a single undo step (mirrors the move
+                // drag above). Konva fires onDragStart before the first
+                // onDragMove, so the snapshot precedes any geometry change.
+                onDragStart={() => useHistory.getState().capture()}
                 onDragMove={onHandleDragMove(h)}
                 // Set the container cursor on hover for clear affordance.
                 onMouseEnter={(e) => {
