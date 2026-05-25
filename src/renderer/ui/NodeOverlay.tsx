@@ -32,6 +32,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useNodes, type TextNode } from "../store/nodes.js";
 import { useSelection } from "../store/selection.js";
+import { useHistory } from "../store/history.js";
 import "./NodeOverlay.css";
 
 export interface NodeOverlayProps {
@@ -88,6 +89,13 @@ export function NodeOverlay({
 
   const commit = useCallback(() => {
     if (draft !== node.text) {
+      // Phase 4 PR 1: text isn't written to the store on every keystroke
+      // (the edit buffer is local `draft` state — see above), so the store
+      // still holds the PRE-edit text at this point. Capturing immediately
+      // before the single commit-time `updateNode` records exactly the
+      // pre-edit document, giving a correct single-step undo. (If text were
+      // written live we'd instead capture on edit-START.)
+      useHistory.getState().capture();
       useNodes.getState().updateNode(node.id, { text: draft });
     }
     onExitEdit();
