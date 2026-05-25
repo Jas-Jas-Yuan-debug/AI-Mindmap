@@ -11,6 +11,7 @@ import {
 } from "../store/reparent.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
+import { useTool } from "../store/tool.js";
 import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
 import { LassoLayer } from "./LassoLayer.js";
@@ -98,6 +99,7 @@ export function Canvas() {
   const gridVisible = useSettings((s) => s.gridVisible);
   const nodes = useNodes((s) => s.nodes);
   const selectionIds = useSelection((s) => s.ids);
+  const activeTool = useTool((s) => s.activeTool);
 
   // Phase 6 (sibling C) collapse: a collapsed group hides its whole subtree.
   // We filter the rendered set so hidden descendants neither paint NOR
@@ -155,6 +157,13 @@ export function Canvas() {
   // selection. Otherwise fall through to pan + empty-canvas-click logic.
   const onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     if (draw.onMouseDown(e)) return;
+    // Placement tool armed (text/group): an empty-canvas click should PLACE a
+    // node (handled in onClick), not pan / lasso / clear. Bail early so those
+    // don't interfere. Clicks on existing nodes fall through to normal drag.
+    const tool = useTool.getState().activeTool;
+    if ((tool === "text" || tool === "group") && e.target === e.target.getStage()) {
+      return;
+    }
     // Phase 4: lasso owns empty-canvas single-click-drag (no space held).
     // When it claims the gesture we skip pan AND the empty-canvas clear —
     // the lasso's mouseup sets the resulting selection (and clears it if the
@@ -189,6 +198,12 @@ export function Canvas() {
     pan.onMouseUp(e);
   };
 
+  // Click: placement tool (text/group) wins, else edge selection.
+  const onStageClick = (e: KonvaEventObject<MouseEvent>) => {
+    if (create.onPlaceClick(e)) return;
+    edgeSelect.onClick(e);
+  };
+
   const onStageMouseLeave = (e: KonvaEventObject<MouseEvent>) => {
     // If a draft was in flight when the cursor leaves the stage, drop it —
     // mouseup outside the window won't reach us, and a "stuck" ghost would
@@ -208,14 +223,17 @@ export function Canvas() {
       y={y}
       scaleX={zoom}
       scaleY={zoom}
-      style={{ background: "var(--aim-color-canvas-bg)", cursor: pan.cursor }}
+      style={{
+        background: "var(--aim-color-canvas-bg)",
+        cursor: activeTool === "text" || activeTool === "group" ? "crosshair" : pan.cursor,
+      }}
       onMouseDown={onStageMouseDown}
       onMouseMove={onStageMouseMove}
       onMouseUp={onStageMouseUp}
       onMouseLeave={onStageMouseLeave}
       onWheel={onWheel}
-      onClick={edgeSelect.onClick}
-      onTap={edgeSelect.onClick}
+      onClick={onStageClick}
+      onTap={onStageClick}
       onDblClick={create.onDblClick}
       onDblTap={create.onDblClick}
     >

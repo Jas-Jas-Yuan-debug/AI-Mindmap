@@ -48,6 +48,17 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Tools",
+    items: [
+      { keys: "V", description: "Select tool" },
+      { keys: "T", description: "Text card tool (click to place)" },
+      { keys: "G", description: "Group tool (click to place)" },
+      { keys: "E", description: "Edge tool (reveals anchors)" },
+      { keys: "I", description: "Insert image" },
+      { keys: "L", description: "Insert link" },
+    ],
+  },
+  {
     title: "View",
     items: [
       { keys: "Scroll", description: "Pan" },
