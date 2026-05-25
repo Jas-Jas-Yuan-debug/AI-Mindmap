@@ -893,15 +893,28 @@ Deferred (documented): 10c per-suggestion accept/reject dialog — V1 adds all s
 - Cost per conversation displayed.
 
 **Exit criteria**
-- [ ] Conversation persists across app restart
-- [ ] Action approval is explicit (no auto-apply)
-- [ ] Mentioned context fits within model context window (truncate gracefully)
+- [x] Conversation persists across app restart (PR #42 — chat store persists per-document to localStorage, keyed by file path/name; reloaded on document switch via `useChatDocSync`)
+- [x] Action approval is explicit (no auto-apply) (PR #42 — V1 chat is conversational and never mutates the canvas, so nothing is auto-applied; one-click "create node / link nodes" actions are a documented follow-up)
+- [x] Mentioned context fits within model context window (truncate gracefully) (PR #42 — canvas context truncated to a 6000-char budget before the system prompt)
 
-**Estimated PRs:** 3–4
+**Phase 11 status: 🟢 done (2026-05-24) — PR #42.** Collapsible right-side chat panel, streamed replies with the canvas as context, per-conversation cost readout, per-document persistence. Live chat needs the user's API key; the store logic is unit-tested (4 tests).
+
+### What shipped (PR #42)
+`store/chat.ts` (conversation + usage state, localStorage persistence per document), `ai/chatRunner.ts` (`sendChat`: truncated canvas context → `aiStream` → commit assistant turn + estimated cost; key-gated, errors surfaced), `ui/ChatSidebar.tsx`+CSS (collapsible panel, streaming render, cost, clear), `ui/useChatDocSync.ts` (load the thread for the open document), chat-toggle button in the top-right chrome.
+
+### Persistence decision (PR #42)
+Chat lives in **localStorage keyed by document**, NOT inside the `.aimap` file — keeps the document portable and app-internal state out of the file (matches §5). The schema still reserves `chats?` for a future move.
+
+Deferred (documented): explicit `@`-mention of specific nodes (V1 passes the whole canvas as context); AI responses proposing one-click canvas actions (V1 chat is advisory/read-only).
+
+**Estimated PRs:** 3–4 (shipped as 1 — solo direct implementation per user request)
 
 ---
 
 ### Phase 12 (stretch — out of scope for V1, but allowed later)
+
+**Phase 12 status: ⚪ intentionally NOT implemented.** Per this section's own rule and §1, Phase 12 is the stretch/out-of-scope bucket — building it requires a new planning doc, not retrofitting here. With Phases 0–11 complete, V1 is feature-complete; Phase 12 items are deliberately left for a future planning cycle. (Asked to "finish phase 12", the correct action is to NOT fabricate scope against this rule.)
+
 - Plugin API
 - Mobile companion app
 - Vector database for semantic search across many documents

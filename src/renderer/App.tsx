@@ -10,11 +10,13 @@ import { CheatSheet } from "./ui/CheatSheet.js";
 import { SettingsDialog } from "./ui/SettingsDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 import { SearchBar } from "./ui/SearchBar.js";
+import { ChatSidebar } from "./ui/ChatSidebar.js";
 import { useAutosave } from "./persistence/useAutosave.js";
 import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
 import { useImportDnd } from "./import/useImportDnd.js";
 import { useThemeEffect } from "./theme/useThemeEffect.js";
 import { useGlobalShortcuts } from "./ui/useGlobalShortcuts.js";
+import { useChatDocSync } from "./ui/useChatDocSync.js";
 
 // Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
 // component so the hooks have a render context without adding state to App.
@@ -29,6 +31,8 @@ function DocumentLifecycle() {
   // (system-following + live OS changes), and the ?/mod+F global keybinds.
   useThemeEffect();
   useGlobalShortcuts();
+  // Phase 11: load the per-document chat thread when the open file changes.
+  useChatDocSync();
   return null;
 }
 
@@ -67,6 +71,8 @@ export default function App() {
         <CheatSheet />
         <SettingsDialog />
         <AboutDialog />
+        {/* Phase 11: collapsible AI chat sidebar (toggle in the top-right chrome). */}
+        <ChatSidebar />
         {/* Phase 5 PR 3/3 (sibling C): autosave + dirty title, and the two file
             dialogs (unsaved-changes prompt + friendly error). The dialogs render
             nothing until their window seam is invoked. */}
