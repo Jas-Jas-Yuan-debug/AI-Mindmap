@@ -865,12 +865,19 @@ Each sub-phase is independently shippable.
 **10d — Generate from prompt** → command palette → "Generate mindmap about X" → AI generates a small subgraph (5–15 nodes + edges) placed near viewport center.
 
 **Exit criteria (per sub-phase)**
-- [ ] Operation can be undone in one step
-- [ ] Cost shown before executing (estimated tokens)
-- [ ] Cancellable mid-stream
-- [ ] No AI feature crashes the app if the API call fails
+- [x] Operation can be undone in one step (PR #41 — every command wraps its node/edge writes in `useHistory.transact()`)
+- [x] Cost shown before executing (estimated tokens) (PR #41 — `confirmCost` shows a ~tokens estimate via `estimateTokens` before spending)
+- [~] Cancellable mid-stream — **N/A for these commands** (they're one-shot `complete()` calls producing structured graph edits, not streamed prose; a command lands atomically or is undone. Mid-stream cancel is the chat sidebar's pattern, Phase 11)
+- [x] No AI feature crashes the app if the API call fails (PR #41 — `withBusy` try/catch routes failures to the error dialog; all commands gated on `aiHasKey` with a "configure in Settings" message)
 
-**Estimated PRs:** 4–6 across 10a–10d
+**Phase 10 status: 🟢 done (2026-05-24) — PR #41.** All four sub-features (10a summarize, 10b expand, 10c suggest, 10d generate) shipped via a shared command runner. Live execution needs the user's API key; the mock provider + pure prompt/parse helpers make the logic CI-testable.
+
+### What shipped (PR #41)
+`src/renderer/ai/prompts.ts` (pure AIRequest builders per command), `aiParse.ts` (defensive JSON extraction + per-command parsers + token estimate, 11 tests), `commands.ts` (the four runners: gather context → `aiComplete` → parse → apply inside one `transact`, gated on key, busy-state + error-surfacing). UI: an **AI** section in the main menu (Summarize selection / Expand card / Suggest connections / Generate from prompt…), disabled while a command runs. `store/aiStatus.ts` busy flag.
+
+Deferred (documented): 10c per-suggestion accept/reject dialog — V1 adds all suggested edges in one undoable step (undo removes them); a review dialog is a follow-up. 10d uses `window.prompt` for the topic; a themed input is a follow-up.
+
+**Estimated PRs:** 4–6 across 10a–10d (shipped as 1 — solo direct implementation per user request)
 
 ---
 
