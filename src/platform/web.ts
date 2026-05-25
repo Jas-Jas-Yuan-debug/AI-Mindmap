@@ -218,17 +218,20 @@ export const webPlatform: Platform = {
   },
 
   ai: {
+    // AI in the web build needs a server proxy to hold the key (no safeStorage
+    // in the browser); deferred. Report "no key" so AI UI shows the
+    // configure/unavailable message rather than crashing.
     async complete() {
-      notImplemented("web.ai.complete");
+      throw new Error("AI is not available in the web build yet (needs a server proxy).");
     },
-    async *stream() {
-      notImplemented("web.ai.stream");
+    async *stream(): AsyncIterable<never> {
+      throw new Error("AI is not available in the web build yet (needs a server proxy).");
     },
     async hasKey() {
       return false;
     },
     async setKey() {
-      notImplemented("web.ai.setKey");
+      // No-op on web for now (no secure local storage for an API key).
     },
   },
 

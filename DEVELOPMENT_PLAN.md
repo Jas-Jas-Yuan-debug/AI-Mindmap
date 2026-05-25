@@ -838,13 +838,18 @@ The remaining phases add AI on top of a stable foundation.
 - Mock provider for tests (no real API calls in CI).
 
 **Exit criteria**
-- [ ] Sending a hello-world prompt from the renderer returns a streamed response
-- [ ] API key never appears in renderer process (verify with DevTools)
-- [ ] No-API-key state shows a clear "configure in Settings" message in any AI UI
-- [ ] Mock provider used in all tests; CI doesn't hit Anthropic
-- [ ] Errors (rate limit, network, invalid key) surface with actionable messages
+- [~] Sending a hello-world prompt from the renderer returns a streamed response — **infra complete; needs a live Anthropic key to verify** (the IPC + streaming path is wired end-to-end via `ai:stream`; user-dependent, deferred to the user per their "do the parts that don't need me" instruction)
+- [x] API key never appears in renderer process (PR #40 — the key is encrypted at rest via Electron `safeStorage` and read only inside the main process in `ai/keyStore.ts`; the renderer's `ai:*` IPC surface has no "read key" channel, only hasKey/setKey/complete/stream)
+- [x] No-API-key state shows a clear "configure in Settings" message (PR #40 — `MissingKeyError` → `classifyError` → `kind: "no_key"`; Settings has the API-key field; AI features check `aiHasKey()` and surface the message)
+- [x] Mock provider used in all tests; CI doesn't hit Anthropic (PR #40 — `ai/mock.ts` MockProvider; tests import it / `classifyError` directly, never the network; AnthropicProvider is only reachable through main IPC)
+- [x] Errors (rate limit, network, invalid key) surface with actionable messages (PR #40 — `classifyError` maps the SDK's typed exceptions to `{kind, message}`; unit-tested)
 
-**Estimated PRs:** 2–3
+**Phase 9 status: 🟢 infra done (2026-05-24) — PR #40.** 4/5 exit criteria met; the live-streamed-response check needs the user's API key (the only user-dependent piece).
+
+### What shipped (PR #40)
+Main-process AI under `src/main/ai/`: `provider.ts` (AIProvider interface + types, model `claude-opus-4-7`), `mock.ts` (deterministic MockProvider for tests), `anthropic.ts` (`@anthropic-ai/sdk` with prompt-cached system prompt + streaming), `errors.ts` (`classifyError` + `MissingKeyError`), `keyStore.ts` (Electron `safeStorage` — chosen over keytar: OS-keychain-backed, no native module). IPC in `src/main/ipc/ai.ts` (`ai:hasKey`/`setKey`/`complete` invoke + `ai:stream` event stream). Renderer: `platform.ai` implemented in `electron.ts` (callback bridge → AsyncIterable adapter), web reports unavailable (server proxy deferred). `src/renderer/ai/aiClient.ts` thin wrapper; Settings gained an API-key field (electron-only). Tests: mock (4) + error classification (3).
+
+**Estimated PRs:** 2–3 (shipped as 1 — solo direct implementation per user request)
 
 ---
 

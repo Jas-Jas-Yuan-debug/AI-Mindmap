@@ -29,6 +29,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "konva": "^9.3.16",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
