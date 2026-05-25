@@ -148,6 +148,37 @@ export function depthOf(
 }
 
 /**
+ * Is `nodeId` hidden because one of its ANCESTOR groups is collapsed?
+ *
+ * Phase 6 collapse (sibling C): a collapsed group hides its entire subtree
+ * (children, grandchildren, …). We walk `nodeId`'s `parentId` chain and return
+ * `true` the moment we hit any ancestor group with `collapsed === true`. The
+ * node's OWN `collapsed` flag does NOT hide it (a collapsed group still draws
+ * its own header + child count) — only an ANCESTOR being collapsed hides it.
+ *
+ * Pure over the node array (no store access) so it's trivially unit-testable
+ * and reusable as a Canvas render filter. A `seen` set bounds the walk so a
+ * malformed parentId loop in a corrupt file can't hang the renderer.
+ */
+export function isHiddenByCollapsedAncestor(
+  nodes: readonly AimapNode[],
+  nodeId: string,
+): boolean {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>([nodeId]);
+  let current = byId.get(nodeId)?.parentId;
+  while (current !== undefined) {
+    if (seen.has(current)) break; // defensive: pre-existing loop, bail
+    seen.add(current);
+    const ancestor = byId.get(current);
+    if (ancestor === undefined) break; // dangling parentId, treat as visible
+    if (ancestor.type === "group" && ancestor.collapsed === true) return true;
+    current = ancestor.parentId;
+  }
+  return false;
+}
+
+/**
  * Set (or clear) a node's parent. Pass `null` to detach the node to the top
  * level. Returns `true` if the change was applied, `false` if it was refused
  * because it would create a cycle (the store is left untouched on refusal).

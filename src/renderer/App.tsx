@@ -1,6 +1,7 @@
 import { Canvas } from "./canvas/Canvas.js";
 import { Chrome } from "./ui/Chrome.js";
 import { NodeOverlayLayer } from "./ui/NodeOverlayLayer.js";
+import { GroupOverlayLayer } from "./ui/GroupOverlayLayer.js";
 import { EdgeLabelOverlayLayer } from "./ui/EdgeLabelOverlayLayer.js";
 import { ErrorDialog } from "./ui/ErrorDialog.js";
 import { UnsavedChangesDialog } from "./ui/UnsavedChangesDialog.js";
@@ -40,6 +41,10 @@ export default function App() {
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <Canvas />
       <NodeOverlayLayer />
+      {/* Phase 6 PR 3/3 (sibling C): group label-edit (double-click header) +
+          group right-click color picker. Groups-only; text overlays stay in
+          NodeOverlayLayer. */}
+      <GroupOverlayLayer />
       <EdgeLabelOverlayLayer />
       <Chrome />
       {/* Phase 5 PR 3/3 (sibling C): autosave + dirty title, and the two file
