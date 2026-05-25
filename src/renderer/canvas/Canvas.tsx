@@ -5,6 +5,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useViewport } from "../store/viewport.js";
 import { useSettings } from "../store/settings.js";
 import { useNodes } from "../store/nodes.js";
+import { depthOf as groupDepth } from "../store/reparent.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
 import { Grid } from "./Grid.js";
@@ -216,10 +217,17 @@ export function Canvas() {
       <EdgeSelectionHighlight />
       <Layer>
         {/* Pass 1 (BEHIND): group containers. Rendered first so children in
-            pass 2 always paint on top of their group. */}
+            pass 2 always paint on top of their group. Phase 6 (sibling B):
+            within this pass, sort by nesting DEPTH (ancestors first) so a
+            nested child group paints ON TOP of its parent group — its tint /
+            border / label stay visible. Text nodes still paint above ALL
+            groups (pass 2), so deepening the group order never hides a card.
+            Stable: equal-depth groups keep store-array (z-order) order. */}
         {nodes
           .filter((n) => n.type === "group")
-          .map((n) => {
+          .map((n) => ({ n, depth: groupDepth(nodes, n.id) }))
+          .sort((a, b) => a.depth - b.depth)
+          .map(({ n }) => {
             const selected = Boolean(selectionIds[n.id]);
             return (
               <GroupNodeBox

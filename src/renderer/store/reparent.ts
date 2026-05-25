@@ -123,6 +123,31 @@ export function descendantsOf(
 }
 
 /**
+ * Nesting depth of `nodeId`: the number of ancestors above it (0 for a
+ * top-level node, 1 for a direct child of a top-level group, …). Walks the
+ * `parentId` chain with a `seen` guard so a malformed loop can't hang. Added
+ * by Phase 6 sibling B for the Canvas z-order pass — rendering groups in
+ * ascending-depth order keeps a nested child group painted on top of its
+ * parent.
+ */
+export function depthOf(
+  nodes: readonly AimapNode[],
+  nodeId: string,
+): number {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>([nodeId]);
+  let depth = 0;
+  let current = byId.get(nodeId)?.parentId;
+  while (current !== undefined) {
+    if (seen.has(current)) break; // defensive: pre-existing loop, bail
+    seen.add(current);
+    depth += 1;
+    current = byId.get(current)?.parentId;
+  }
+  return depth;
+}
+
+/**
  * Set (or clear) a node's parent. Pass `null` to detach the node to the top
  * level. Returns `true` if the change was applied, `false` if it was refused
  * because it would create a cycle (the store is left untouched on refusal).

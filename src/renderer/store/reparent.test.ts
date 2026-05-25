@@ -14,6 +14,7 @@ import {
 } from "./nodes.js";
 import {
   childrenOf,
+  depthOf,
   descendantsOf,
   isDescendant,
   setParent,
@@ -158,6 +159,30 @@ describe("descendantsOf", () => {
     // Bounded by the seen-set; should terminate and not include X twice.
     const ids = descendantsOf(corrupt, "X").map((n) => n.id);
     expect(ids).not.toContain("X");
+  });
+});
+
+// --- depthOf ---------------------------------------------------------------
+
+describe("depthOf", () => {
+  test("a top-level node has depth 0", () => {
+    expect(depthOf(tree(), "A")).toBe(0);
+    expect(depthOf(tree(), "E")).toBe(0);
+  });
+
+  test("a direct child has depth 1", () => {
+    expect(depthOf(tree(), "B")).toBe(1); // B under A
+    expect(depthOf(tree(), "D")).toBe(1); // D under A
+  });
+
+  test("a grandchild has depth 2", () => {
+    expect(depthOf(tree(), "C")).toBe(2); // C under B under A
+  });
+
+  test("a malformed loop does not hang the walk", () => {
+    const corrupt: AimapNode[] = [group("X", "Y"), group("Y", "X")];
+    // Bounded by the seen-set; terminates with a finite depth.
+    expect(Number.isFinite(depthOf(corrupt, "X"))).toBe(true);
   });
 });
 

@@ -43,6 +43,7 @@ import {
   type ResizeHandle,
 } from "../interactions/resize.js";
 import { AnchorDots } from "./AnchorDots.js";
+import { reparentOnDrop } from "../interactions/dropReparent.js";
 
 /**
  * Preset color id ("1".."6", per plan §5) → concrete hex.
@@ -221,6 +222,20 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
   };
 
   const onDragEnd = () => {
+    // Phase 6 (sibling B): on drop, reparent this card into whatever group its
+    // center landed in (or detach to top-level if dropped over empty canvas).
+    // The drag already called useHistory.capture() on START, and
+    // reparentOnDrop → setParent does NOT capture again, so the move + this
+    // reparent collapse into a single undo step.
+    //
+    // We only reparent the PRIMARY dragged node. When the card is part of a
+    // multi-selection (peers move with it via the delta above), reparenting
+    // every peer by its own center would be surprising — Excalidraw treats a
+    // group-move as a position change, not a hierarchy change. So a single-
+    // node drag reparents; a multi-node drag just moves. (Peers untouched.)
+    if (!dragGroupRef.current || dragGroupRef.current.peers.length === 0) {
+      reparentOnDrop(node.id);
+    }
     dragGroupRef.current = null;
   };
 
