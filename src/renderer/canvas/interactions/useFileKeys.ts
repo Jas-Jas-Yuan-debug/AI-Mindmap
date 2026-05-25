@@ -45,7 +45,7 @@ export function useFileKeys(): void {
 
       if (key === "n") {
         e.preventDefault();
-        newDocument();
+        void newDocument();
         return;
       }
       if (key === "o") {

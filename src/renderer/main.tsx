@@ -6,6 +6,7 @@ import { webPlatform } from "../platform/web.js";
 import type { Platform } from "../shared/platform.js";
 import { installDevHelpers } from "./dev/aimPushCards.js";
 import { installEdgeDevHelpers } from "./dev/aimPushEdges.js";
+import { installDocStatusSubscriptions } from "./store/docStatus.js";
 import "./ui/theme.css";
 
 declare global {
@@ -40,3 +41,8 @@ ReactDOM.createRoot(rootEl).render(
     <App />
   </React.StrictMode>,
 );
+
+// Phase 5 PR 3/3 (sibling C): wire the dirty flag to the document stores. Done
+// after the initial render so the first paint of a pristine canvas doesn't
+// mark the document dirty. Idempotent.
+installDocStatusSubscriptions();

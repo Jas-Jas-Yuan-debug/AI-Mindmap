@@ -17,6 +17,19 @@ export const FILE_CHANNELS = {
   recent: "files:recent",
 } as const;
 
+/**
+ * Window-lifecycle IPC channels (Phase 5 PR 3/3 — unsaved-changes guard).
+ *   - `window:dirtyChanged` (renderer → main): the renderer reports the live
+ *     dirty flag so the main process can intercept window close.
+ *   - `window:confirmClose` (main → renderer, invoke): main asks the renderer
+ *     to run its own save/discard prompt and resolve whether to proceed with
+ *     the close. Returns `true` to close, `false` to keep the window open.
+ */
+export const WINDOW_CHANNELS = {
+  dirtyChanged: "window:dirtyChanged",
+  confirmClose: "window:confirmClose",
+} as const;
+
 /** Result of `files:open` — null when the user cancelled the dialog. */
 export type FilesOpenResult = { handle: FileHandle; data: AimapFile } | null;
 

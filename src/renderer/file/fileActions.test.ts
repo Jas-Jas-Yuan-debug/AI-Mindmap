@@ -84,14 +84,17 @@ beforeEach(() => {
 });
 
 describe("newDocument", () => {
-  test("clears nodes, edges, viewport, history, and current file", () => {
+  test("clears nodes, edges, viewport, history, and current file", async () => {
     useNodes.setState({ nodes: [sampleNode()] });
     useEdges.setState({ edges: [sampleEdge()] });
     useViewport.getState().setViewport({ x: 99, y: 88, zoom: 2 });
     useHistory.getState().capture();
     useDocument.getState().setCurrentFile(makeHandle("old.aimap"));
 
-    newDocument();
+    // newDocument is async (Phase 5 PR 3/3: it awaits the unsaved-changes
+    // guard). With no `__aimConfirmDiscard` registered the guard resolves
+    // immediately, but the reset still runs on a microtask, so await it.
+    await newDocument();
 
     expect(useNodes.getState().nodes).toEqual([]);
     expect(useEdges.getState().edges).toEqual([]);
@@ -134,7 +137,7 @@ describe("save → open round-trip", () => {
     expect(useDocument.getState().currentFile).toBe(handle);
 
     // Now wipe the live doc and re-open the written file.
-    newDocument();
+    await newDocument();
     expect(useNodes.getState().nodes).toEqual([]);
 
     const openPlatform = fakePlatform({

@@ -1,0 +1,104 @@
+/* Shared modal scaffolding for the file dialogs (Phase 5 PR 3/3):
+   the "unsaved changes" prompt + the corrupt-file error dialog.
+   Excalidraw-inspired Island styling, theme tokens only. */
+
+.aim-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--aim-z-chrome) + 50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.32);
+  padding: var(--aim-container-padding);
+}
+
+.aim-modal {
+  background: var(--aim-color-island-bg);
+  color: var(--aim-color-text);
+  border-radius: var(--aim-border-radius);
+  box-shadow: var(--aim-shadow-island);
+  font-family: var(--aim-font-ui);
+  max-width: 28rem;
+  width: 100%;
+  padding: var(--aim-container-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--aim-gap);
+}
+
+.aim-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.aim-modal__body {
+  margin: 0;
+  color: var(--aim-color-text);
+  line-height: 1.4;
+}
+
+.aim-modal__detail {
+  margin: 0;
+  padding: var(--aim-gap);
+  border-radius: var(--aim-border-radius-md);
+  background: var(--aim-color-surface-high);
+  color: var(--aim-color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 8rem;
+  overflow: auto;
+}
+
+.aim-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--aim-gap);
+  margin-top: var(--aim-gap-sm);
+}
+
+/* Buttons */
+.aim-modal__btn {
+  border: 1px solid var(--aim-color-border);
+  border-radius: var(--aim-border-radius-md);
+  background: transparent;
+  color: var(--aim-color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  padding: 0.375rem 0.875rem;
+  cursor: pointer;
+  transition: var(--aim-transition-state);
+}
+
+.aim-modal__btn:hover {
+  background: var(--aim-color-surface-high);
+}
+
+.aim-modal__btn:focus-visible {
+  outline: 2px solid var(--aim-color-primary);
+  outline-offset: 2px;
+}
+
+.aim-modal__btn--primary {
+  background: var(--aim-color-primary);
+  border-color: var(--aim-color-primary);
+  color: #ffffff;
+}
+
+.aim-modal__btn--primary:hover {
+  background: var(--aim-color-primary-hover);
+  border-color: var(--aim-color-primary-hover);
+}
+
+.aim-modal__btn--danger {
+  border-color: var(--aim-color-danger);
+  color: var(--aim-color-danger);
+}
+
+.aim-modal__btn--danger:hover {
+  background: var(--aim-color-danger);
+  color: #ffffff;
+}
