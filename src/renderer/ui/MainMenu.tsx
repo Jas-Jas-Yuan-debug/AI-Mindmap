@@ -10,12 +10,14 @@ import {
   Save,
   SaveAll,
 } from "lucide-react";
-import { Settings as SettingsIcon, Keyboard, Info } from "lucide-react";
+import { Settings as SettingsIcon, Keyboard, Info, Sparkles } from "lucide-react";
 import { Island } from "./Island.js";
 import { useSettings } from "../store/settings.js";
 import { useViewport } from "../store/viewport.js";
 import { useDocument } from "../store/document.js";
 import { usePanels } from "../store/panels.js";
+import { useAiStatus } from "../store/aiStatus.js";
+import { runSummarize, runExpand, runGenerate, runSuggest } from "../ai/commands.js";
 import {
   newDocument,
   openDocument,
@@ -65,6 +67,7 @@ export function MainMenu({ onClick }: MainMenuProps) {
   const toggleGrid = useSettings((s) => s.toggleGrid);
   const fitToContent = useViewport((s) => s.fitToContent);
   const showPanel = usePanels((s) => s.show);
+  const aiBusy = useAiStatus((s) => s.busy);
   const recentFiles = useDocument((s) => s.recentFiles);
   const refreshRecentFiles = useDocument((s) => s.refreshRecentFiles);
 
@@ -278,6 +281,60 @@ export function MainMenu({ onClick }: MainMenuProps) {
               <Maximize2 size={14} />
             </span>
             <span className="aim-mainmenu__label">Fit to Content</span>
+          </button>
+
+          <div className="aim-mainmenu__divider" role="separator" />
+
+          <div className="aim-mainmenu__section-label" aria-hidden="true">
+            AI {aiBusy ? "(working…)" : ""}
+          </div>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            disabled={aiBusy}
+            onClick={run(runSummarize)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Sparkles size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Summarize selection</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            disabled={aiBusy}
+            onClick={run(runExpand)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Sparkles size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Expand card</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            disabled={aiBusy}
+            onClick={run(runSuggest)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Sparkles size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Suggest connections</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            disabled={aiBusy}
+            onClick={run(runGenerate)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <Sparkles size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Generate from prompt…</span>
           </button>
 
           <div className="aim-mainmenu__divider" role="separator" />

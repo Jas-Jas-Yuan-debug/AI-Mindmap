@@ -30,7 +30,8 @@ export interface RecentFile {
 }
 
 export interface AIRequest {
-  model: string;
+  /** Optional — the main-process provider defaults to claude-opus-4-7. */
+  model?: string;
   system?: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxTokens?: number;
