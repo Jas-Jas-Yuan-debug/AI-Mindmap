@@ -49,16 +49,28 @@ export type {
   Node as AimapFileNode,
 } from "../../shared/aimap.js";
 
-import type { GroupNode, TextNode } from "../../shared/aimap.js";
+import type {
+  GroupNode,
+  TextNode,
+  ImageNode,
+  FileNode,
+  LinkNode,
+} from "../../shared/aimap.js";
 
 /**
  * The node shape the runtime store + renderer operate on. Phase 6 widened
- * this to `TextNode | GroupNode` (the canvas now draws both). File / link /
- * image variants from the on-disk `Node` union (see aimap.ts) join when the
- * renderer learns to draw them in Phase 7. Re-exported as `AimapFileNode`
- * above for code that needs the full union.
+ * this to `TextNode | GroupNode`; Phase 7 (this change) adds the embed
+ * variants — `ImageNode | FileNode | LinkNode` — now that the renderer can
+ * draw them (see `canvas/nodes/{ImageNode,FileNode,LinkNode}.tsx`). This now
+ * matches the full on-disk `Node` union in aimap.ts (re-exported above as
+ * `AimapFileNode`).
+ *
+ * CONSEQUENCE for consumers: narrow with `node.type === "..."` before reaching
+ * for variant-only fields (`.text`, `.url`, `.file`, `.label`). The renderer
+ * passes in Canvas.tsx are split by `type`, and the markdown overlay only
+ * renders for `type === "text"`.
  */
-export type AimapNode = TextNode | GroupNode;
+export type AimapNode = TextNode | GroupNode | ImageNode | FileNode | LinkNode;
 
 export interface NodesState {
   nodes: AimapNode[];

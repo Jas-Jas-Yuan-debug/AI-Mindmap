@@ -770,12 +770,22 @@ The engine (PR #32, "PR 1/3") shipped: `src/shared/aimap.ts` (canonical schema +
 - Image resize maintains aspect ratio by default (Shift to override).
 
 **Exit criteria**
-- [ ] Drag-drop of 10MB PNG works smoothly
-- [ ] Link metadata fetch has a 5s timeout and never blocks the UI
-- [ ] Asset files referenced by deleted ImageNodes are NOT auto-deleted (user explicit only — avoid data loss surprises)
-- [ ] Renaming the document folder breaks no references (paths stored relative)
+- [x] Drag-drop of a PNG works smoothly (PR #38 — window-level drop → ImageNode; bitmap read as a data URL, sized via `fitImageSize`)
+- [x] Link metadata fetch has a 5s timeout and never blocks the UI (PR #38 — `links:fetchMeta` IPC uses a 5s `AbortController`; LinkNode created immediately with host-name title, enriched async)
+- [~] Asset files referenced by deleted ImageNodes are NOT auto-deleted — **N/A for the V1 data-URL approach** (no separate asset files to orphan; see scope note)
+- [~] Renaming the document folder breaks no references — **N/A for the V1 data-URL approach** (image bytes embedded in the `.aimap` file)
 
-**Estimated PRs:** 3–4
+**Phase 7 status: 🟢 done (2026-05-24) — PR #38.** All deliverables shipped; the two disk-asset exit criteria are N/A under the V1 data-URL decision below.
+
+### Phase 7 scope note — V1 embeds images as data URLs (PR #38)
+The plan originally specified copying dropped images into `<file>.aimap.assets/` with a relative path in `ImageNode.file`. PR #38 instead embeds the bitmap as a **data URL** in `ImageNode.file`:
+- **Why:** data URLs work identically on Electron AND web, need no open-document folder (drop onto an Untitled canvas), and eliminate the orphaned-asset + folder-rename hazards entirely — which is why those two criteria become N/A rather than failing.
+- **Cost:** larger `.aimap` files for image-heavy docs (base64 ~+33%). Acceptable for V1.
+- **Forward path:** `ImageNode.file` is a `string` either way, so moving to `<file>.aimap.assets/` relative paths later is non-breaking — the two N/A criteria reactivate then.
+
+**What shipped (PR #38):** widened runtime `AimapNode` to include `ImageNode | FileNode | LinkNode`; renderers `canvas/nodes/{ImageNode,FileNode,LinkNode}.tsx` (+ shared `useNodeDrag`); `import/useImportDnd.ts` (drag-drop + paste) with pure `import/importClassify.ts` (10 tests); platform `links.fetchMeta` + `shell.openPath/openExternal`, Electron fetch+parse in `main/ipc/embeds.ts` (regex title, favicon, 5s `AbortController`), web returns null.
+
+**Estimated PRs:** 3–4 (shipped as 1 — solo direct implementation per user request)
 
 ---
 

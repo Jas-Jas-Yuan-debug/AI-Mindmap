@@ -7,6 +7,7 @@ import { ErrorDialog } from "./ui/ErrorDialog.js";
 import { UnsavedChangesDialog } from "./ui/UnsavedChangesDialog.js";
 import { useAutosave } from "./persistence/useAutosave.js";
 import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
+import { useImportDnd } from "./import/useImportDnd.js";
 
 // Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
 // component so the hooks have a render context without adding state to App.
@@ -15,6 +16,8 @@ import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
 function DocumentLifecycle() {
   useAutosave();
   useDocumentTitle();
+  // Phase 7: window-level drag-drop (image/file) + paste (image/URL) import.
+  useImportDnd();
   return null;
 }
 

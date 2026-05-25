@@ -17,6 +17,14 @@ contextBridge.exposeInMainWorld("aimBridge", {
       ipcRenderer.invoke("files:saveAs", { data, suggestedName }),
     recent: () => ipcRenderer.invoke("files:recent"),
   },
+  // Phase 7: open files/links in the OS, and fetch link preview metadata.
+  shell: {
+    openPath: (p: string) => ipcRenderer.invoke("shell:openPath", p),
+    openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+  },
+  links: {
+    fetchMeta: (url: string) => ipcRenderer.invoke("links:fetchMeta", url),
+  },
   // Phase 5 PR 3/3: unsaved-changes guard on window close.
   window: {
     // Renderer → main: report the live dirty flag.

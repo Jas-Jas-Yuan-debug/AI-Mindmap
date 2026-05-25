@@ -16,6 +16,9 @@ import { Origin } from "./Origin.js";
 import { LassoLayer } from "./LassoLayer.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
 import { GroupNodeBox } from "./nodes/GroupNode.js";
+import { ImageNodeBox } from "./nodes/ImageNode.js";
+import { FileNodeBox } from "./nodes/FileNode.js";
+import { LinkNodeBox } from "./nodes/LinkNode.js";
 import { AnchorDots } from "./nodes/AnchorDots.js";
 import { EdgesLayer } from "./edges/EdgesLayer.js";
 import { EdgeDraft } from "./edges/EdgeDraft.js";
@@ -272,6 +275,31 @@ export function Canvas() {
                   <AnchorDots node={n} visible={selected} />
                 </Group>
               </Fragment>
+            );
+          })}
+        {/* Pass 2b (Phase 7): embed nodes — image / file / link. Rendered in
+            the same on-top pass as text cards (above all groups). Each is
+            draggable + selectable via the shared useNodeDrag hook. */}
+        {visibleNodes
+          .filter(
+            (n) => n.type === "image" || n.type === "file" || n.type === "link",
+          )
+          .map((n) => {
+            const selected = Boolean(selectionIds[n.id]);
+            const onNodeSelect = (e: KonvaEventObject<MouseEvent>) =>
+              selectNode(n.id, e.evt.shiftKey);
+            if (n.type === "image") {
+              return (
+                <ImageNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
+              );
+            }
+            if (n.type === "file") {
+              return (
+                <FileNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
+              );
+            }
+            return (
+              <LinkNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
             );
           })}
       </Layer>
