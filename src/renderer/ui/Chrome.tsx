@@ -10,6 +10,8 @@ import { MessageSquare } from "lucide-react";
 import { Island } from "./Island.js";
 import { usePanels } from "../store/panels.js";
 import { useChat } from "../store/chat.js";
+import { useTool } from "../store/tool.js";
+import { selectTool } from "./toolActions.js";
 
 // The floating chrome layer that sits over the canvas. Mirrors Excalidraw's
 // LayerUI / FixedSideContainer pattern: wrapper has pointer-events: none so
@@ -18,6 +20,7 @@ import { useChat } from "../store/chat.js";
 export function Chrome() {
   const showCheatSheet = usePanels((s) => s.show);
   const toggleChat = useChat((s) => s.toggle);
+  const activeTool = useTool((s) => s.activeTool);
   return (
     <div className="aim-chrome" aria-label="App chrome">
       <div className="aim-chrome__row aim-chrome__row--top">
@@ -25,7 +28,7 @@ export function Chrome() {
           <MainMenu />
         </div>
         <div className="aim-chrome__col aim-chrome__col--center">
-          <Toolbar />
+          <Toolbar activeTool={activeTool} onSelectTool={selectTool} />
         </div>
         <div className="aim-chrome__col aim-chrome__col--end aim-chrome__col--gap">
           <Island ariaLabel="Chat">

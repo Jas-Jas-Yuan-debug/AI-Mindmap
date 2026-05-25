@@ -22,6 +22,7 @@
 import { Circle } from "react-konva";
 import type { TextNode as TextNodeT } from "../../store/nodes.js";
 import { useViewport } from "../../store/viewport.js";
+import { useTool } from "../../store/tool.js";
 import {
   anchorPosition,
   type EdgeSide,
@@ -44,8 +45,10 @@ export function AnchorDots({ node, visible }: AnchorDotsProps) {
   // radius by the current zoom so a dot stays 6px on screen at any
   // zoom level. Same trick TextNode uses for its resize handles.
   const zoom = useViewport((s) => s.zoom);
+  // The "edge" tool reveals all anchor dots so drag-to-connect is discoverable.
+  const edgeMode = useTool((s) => s.activeTool === "edge");
 
-  if (!visible) return null;
+  if (!visible && !edgeMode) return null;
 
   const radius = DOT_RADIUS_PX / zoom;
   const strokeWidth = DOT_STROKE_WIDTH / zoom;

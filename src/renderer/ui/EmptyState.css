@@ -1,0 +1,79 @@
+/* Blank-canvas onboarding hint. Centered, faint, non-interactive. */
+
+.aim-empty {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+  font-family: var(--aim-font-ui);
+  animation: aim-empty-in 0.5s var(--aim-ease) both;
+}
+
+@keyframes aim-empty-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.aim-empty__card {
+  text-align: center;
+  color: var(--aim-color-text-muted);
+  max-width: 22rem;
+  padding: 1.5rem;
+}
+
+.aim-empty__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--aim-color-text);
+  opacity: 0.55;
+}
+
+.aim-empty__sub {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.aim-empty__hints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.aim-empty__hints li {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  justify-content: center;
+}
+
+.aim-empty__hints kbd {
+  font-family: var(--aim-font-mono);
+  font-size: 0.72rem;
+  color: var(--aim-color-text);
+  background: var(--aim-color-surface);
+  border: 1px solid var(--aim-color-hairline);
+  border-radius: var(--aim-border-radius-md);
+  padding: 0.1rem 0.4rem;
+  min-width: 5.5rem;
+  text-align: center;
+}
+
+.aim-empty__hints span {
+  text-align: left;
+  min-width: 11rem;
+}

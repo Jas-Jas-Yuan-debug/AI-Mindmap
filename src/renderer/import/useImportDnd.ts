@@ -33,7 +33,7 @@ function screenToCanvas(clientX: number, clientY: number) {
   return { x: Math.round((clientX - v.x) / v.zoom), y: Math.round((clientY - v.y) / v.zoom) };
 }
 
-function viewportCenterCanvas() {
+export function viewportCenterCanvas() {
   const w = typeof window !== "undefined" ? window.innerWidth : 1200;
   const h = typeof window !== "undefined" ? window.innerHeight : 800;
   return screenToCanvas(w / 2, h / 2);
@@ -48,7 +48,7 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-async function addImageFromFile(file: File, at: { x: number; y: number }) {
+export async function addImageFromFile(file: File, at: { x: number; y: number }) {
   const dataUrl = await readAsDataUrl(file);
   const dims = await new Promise<{ width: number; height: number }>((resolve) => {
     const img = new window.Image();
@@ -87,7 +87,7 @@ function addFileNode(name: string, path: string, at: { x: number; y: number }) {
   useSelection.getState().select(node.id);
 }
 
-async function addLinkNode(url: string, at: { x: number; y: number }) {
+export async function addLinkNode(url: string, at: { x: number; y: number }) {
   const node: LinkNode = {
     id: makeNodeId(),
     type: "link",

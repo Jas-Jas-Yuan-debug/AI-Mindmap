@@ -11,12 +11,14 @@ import { SettingsDialog } from "./ui/SettingsDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 import { SearchBar } from "./ui/SearchBar.js";
 import { ChatSidebar } from "./ui/ChatSidebar.js";
+import { EmptyState } from "./ui/EmptyState.js";
 import { useAutosave } from "./persistence/useAutosave.js";
 import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
 import { useImportDnd } from "./import/useImportDnd.js";
 import { useThemeEffect } from "./theme/useThemeEffect.js";
 import { useGlobalShortcuts } from "./ui/useGlobalShortcuts.js";
 import { useChatDocSync } from "./ui/useChatDocSync.js";
+import { useToolKeys } from "./ui/useToolKeys.js";
 
 // Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
 // component so the hooks have a render context without adding state to App.
@@ -33,6 +35,8 @@ function DocumentLifecycle() {
   useGlobalShortcuts();
   // Phase 11: load the per-document chat thread when the open file changes.
   useChatDocSync();
+  // UX: single-key tool shortcuts (V/T/G/E/I/L).
+  useToolKeys();
   return null;
 }
 
@@ -59,6 +63,8 @@ export default function App() {
     <ErrorBoundary>
       <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
         <Canvas />
+        {/* UX: blank-canvas onboarding hint (hidden once a node exists). */}
+        <EmptyState />
         <NodeOverlayLayer />
         {/* Phase 6 PR 3/3 (sibling C): group label-edit (double-click header) +
             group right-click color picker. Groups-only; text overlays stay in
