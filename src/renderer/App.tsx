@@ -2,6 +2,20 @@ import { Canvas } from "./canvas/Canvas.js";
 import { Chrome } from "./ui/Chrome.js";
 import { NodeOverlayLayer } from "./ui/NodeOverlayLayer.js";
 import { EdgeLabelOverlayLayer } from "./ui/EdgeLabelOverlayLayer.js";
+import { ErrorDialog } from "./ui/ErrorDialog.js";
+import { UnsavedChangesDialog } from "./ui/UnsavedChangesDialog.js";
+import { useAutosave } from "./persistence/useAutosave.js";
+import { useDocumentTitle } from "./persistence/useDocumentTitle.js";
+
+// Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
+// component so the hooks have a render context without adding state to App.
+//   - useAutosave():      debounced write-back to the backing file on edits.
+//   - useDocumentTitle():  reflect filename + dirty bullet into document.title.
+function DocumentLifecycle() {
+  useAutosave();
+  useDocumentTitle();
+  return null;
+}
 
 // App is a thin shell. Layer composition (back → front):
 //   <Canvas />               — Konva Stage, owns viewport / pan / zoom /
@@ -28,6 +42,12 @@ export default function App() {
       <NodeOverlayLayer />
       <EdgeLabelOverlayLayer />
       <Chrome />
+      {/* Phase 5 PR 3/3 (sibling C): autosave + dirty title, and the two file
+          dialogs (unsaved-changes prompt + friendly error). The dialogs render
+          nothing until their window seam is invoked. */}
+      <DocumentLifecycle />
+      <UnsavedChangesDialog />
+      <ErrorDialog />
     </div>
   );
 }

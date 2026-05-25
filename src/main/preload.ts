@@ -17,4 +17,24 @@ contextBridge.exposeInMainWorld("aimBridge", {
       ipcRenderer.invoke("files:saveAs", { data, suggestedName }),
     recent: () => ipcRenderer.invoke("files:recent"),
   },
+  // Phase 5 PR 3/3: unsaved-changes guard on window close.
+  window: {
+    // Renderer → main: report the live dirty flag.
+    setDirty: (dirty: boolean) =>
+      ipcRenderer.send("window:dirtyChanged", dirty),
+    // Main → renderer: run the in-app save/discard prompt, resolve true to
+    // proceed with the close. The renderer registers this handler.
+    onConfirmClose: (handler: () => Promise<boolean> | boolean) => {
+      ipcRenderer.removeAllListeners("window:confirmClose");
+      ipcRenderer.on("window:confirmClose", async (_e, requestId: number) => {
+        let proceed = true;
+        try {
+          proceed = await handler();
+        } catch {
+          proceed = false;
+        }
+        ipcRenderer.send(`window:confirmClose:reply:${requestId}`, proceed);
+      });
+    },
+  },
 });

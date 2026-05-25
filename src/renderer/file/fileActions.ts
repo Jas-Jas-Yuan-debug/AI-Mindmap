@@ -39,6 +39,7 @@ import { useHistory } from "../store/history.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
 import { useDocument } from "../store/document.js";
+import { useDocStatus } from "../store/docStatus.js";
 
 /** The platform adapter, or undefined in non-browser contexts (tests/SSR). */
 function platform() {
@@ -106,6 +107,16 @@ function resetToEmptyDocument(): void {
 }
 
 /**
+ * Mark the document clean (Phase 5 PR 3/3, sibling C). A freshly opened / new /
+ * saved document has no unsaved edits, so we reset the dirty flag here. This
+ * runs AFTER the store mutations above so the `markDirty` subscriptions those
+ * mutations fire are overridden by the clean stamp on the same tick.
+ */
+function noteSaved(): void {
+  useDocStatus.getState().markSaved();
+}
+
+/**
  * File ▸ New. Clears the canvas to an empty document and drops the backing
  * file handle.
  *
@@ -114,9 +125,10 @@ function resetToEmptyDocument(): void {
  * so the prompt works end-to-end; if C hasn't merged yet this is a no-op
  * guard and C will wire the confirmation in their PR.
  */
-export function newDocument(): void {
-  if (!confirmDiscardIfDirty()) return;
+export async function newDocument(): Promise<void> {
+  if (!(await confirmDiscardIfDirty())) return;
   resetToEmptyDocument();
+  noteSaved();
 }
 
 /**
@@ -128,7 +140,7 @@ export function newDocument(): void {
  * that as a no-op (not an error).
  */
 export async function openDocument(): Promise<void> {
-  if (!confirmDiscardIfDirty()) return;
+  if (!(await confirmDiscardIfDirty())) return;
   const p = platform();
   if (!p?.files?.openCanvas) return;
 
@@ -144,6 +156,9 @@ export async function openDocument(): Promise<void> {
   try {
     loadAimapFile(result.data);
     useDocument.getState().setCurrentFile(result.handle);
+    // A freshly-loaded document is clean (Phase 5 PR 3/3). Stamp AFTER the
+    // store writes above so their markDirty subscriptions are overridden.
+    noteSaved();
   } catch (err) {
     // Parse / validation already happened in the platform (Zod at the load
     // boundary, per plan §5); a throw here means the doc shape surprised us.
@@ -189,6 +204,7 @@ export async function saveDocument(): Promise<void> {
     reportFileError("save", err);
     return;
   }
+  noteSaved();
   await useDocument.getState().refreshRecentFiles();
 }
 
@@ -214,24 +230,27 @@ export async function saveDocumentAs(): Promise<void> {
   if (!handle) return; // user cancelled
 
   useDocument.getState().setCurrentFile(handle);
+  noteSaved();
   await useDocument.getState().refreshRecentFiles();
 }
 
 /**
- * Dirty-state guard. Sibling C owns the dirty flag + autosave; we optional-
- * chain into their global hook if present so `New` / `Open` prompt before
- * discarding unsaved work. Returns `true` to proceed, `false` to abort.
+ * Dirty-state guard. The dirty flag + prompt UI live in sibling C's
+ * `docStatus` store + `UnsavedChangesDialog`; we call their global hook if
+ * present so `New` / `Open` prompt before discarding unsaved work. Returns
+ * `true` to proceed, `false` to abort.
  *
- * Until C merges, `window.__aimConfirmDiscard` is undefined and we proceed
- * unconditionally — C wires the real prompt in their PR.
+ * The hook is async (it shows a modal and resolves when the user picks Save /
+ * Don't Save / Cancel), so we `await` it. When the hook is absent (unit tests
+ * / SSR / before C's UI mounts) we proceed unconditionally.
  */
-function confirmDiscardIfDirty(): boolean {
+async function confirmDiscardIfDirty(): Promise<boolean> {
   const fn =
     typeof window !== "undefined"
       ? window.__aimConfirmDiscard
       : undefined;
   if (typeof fn !== "function") return true;
-  return fn();
+  return await fn();
 }
 
 /**
@@ -256,9 +275,13 @@ function reportFileError(op: "open" | "save", err: unknown): void {
 
 declare global {
   interface Window {
-    /** Sibling C (dirty/autosave): return false to abort a discard. */
-    __aimConfirmDiscard?: () => boolean;
-    /** Sibling C (errors): show a friendly file-error dialog. */
+    /**
+     * Dirty/autosave guard (sibling C). Resolves `false` to abort a discard,
+     * `true` to proceed. Shows the "unsaved changes" modal when dirty;
+     * resolves `true` immediately when the document is already clean.
+     */
+    __aimConfirmDiscard?: () => boolean | Promise<boolean>;
+    /** Errors (sibling C): show a friendly file-error dialog. */
     __aimReportFileError?: (op: "open" | "save", message: string) => void;
   }
 }
