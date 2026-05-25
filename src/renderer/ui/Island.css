@@ -6,10 +6,28 @@
   pointer-events: auto;
   color: var(--aim-color-text);
   font-family: var(--aim-font-ui);
-  transition: box-shadow var(--aim-transition-shadow);
+  transition: var(--aim-transition-shadow);
   display: flex;
   align-items: center;
   gap: var(--aim-gap-sm);
+  /* Lifted-paper entrance on mount (chrome islands + opening dropdowns). */
+  animation: aim-island-in 0.34s var(--aim-ease) both;
+}
+
+/* Hover lifts the paper a touch — the signature Excalidraw tactility. */
+.aim-island:hover {
+  box-shadow: var(--aim-shadow-island-hover);
+}
+
+@keyframes aim-island-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .aim-island--row > * {
@@ -35,19 +53,20 @@
 }
 
 .aim-icon-button:hover {
-  background: var(--aim-color-surface-high);
+  background: var(--aim-color-surface);
+}
+
+.aim-icon-button:active {
+  transform: scale(0.94);
 }
 
 .aim-icon-button[aria-pressed="true"],
 .aim-icon-button.aim-icon-button--active {
-  background: var(--aim-color-primary-light);
+  background: var(--aim-color-primary-soft);
   color: var(--aim-color-primary);
 }
 
-.aim-icon-button:focus-visible {
-  outline: 2px solid var(--aim-color-primary);
-  outline-offset: 2px;
-}
+/* Focus ring is defined once, globally, in theme.css. */
 
 .aim-icon-button--lg {
   width: var(--aim-button-size-lg);
@@ -57,6 +76,6 @@
 .aim-divider {
   width: 1px;
   align-self: stretch;
-  background: var(--aim-color-surface-high);
+  background: var(--aim-color-hairline);
   margin: 0 var(--aim-gap-sm);
 }
