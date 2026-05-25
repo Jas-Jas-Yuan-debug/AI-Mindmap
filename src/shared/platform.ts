@@ -46,6 +46,14 @@ export interface AIChunk {
   done: boolean;
 }
 
+/** Metadata fetched for a pasted link (Phase 7 LinkNode enrichment). */
+export interface LinkMeta {
+  /** Page <title>, when it could be read. */
+  title?: string;
+  /** Favicon as an absolute URL or data URL. */
+  favicon?: string;
+}
+
 export interface Settings {
   theme: "light" | "dark" | "system";
   recentFiles: RecentFile[];
@@ -81,6 +89,11 @@ export interface Platform {
   shell: {
     openPath(path: string): Promise<void>;
     openExternal(url: string): Promise<void>;
+  };
+
+  /** Link-preview metadata (Phase 7). Web returns null (no CORS-free fetch). */
+  links: {
+    fetchMeta(url: string): Promise<LinkMeta | null>;
   };
 }
 

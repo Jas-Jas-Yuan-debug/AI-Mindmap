@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import * as path from "path";
 import { registerFileHandlers } from "./ipc/files.js";
+import { registerEmbedHandlers } from "./ipc/embeds.js";
 
 const DEV_URL = process.env.AIM_DEV_URL;
 const isDev = !!DEV_URL;
@@ -86,6 +87,7 @@ function createMainWindow(): void {
 
 app.whenReady().then(() => {
   registerFileHandlers();
+  registerEmbedHandlers();
   createMainWindow();
 });
 

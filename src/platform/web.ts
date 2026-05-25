@@ -245,10 +245,21 @@ export const webPlatform: Platform = {
 
   shell: {
     async openPath() {
-      notImplemented("web.shell.openPath");
+      // No filesystem path concept on web — FileNode.file holds a display
+      // name, not an openable path. No-op (don't throw; double-click is a
+      // best-effort affordance).
     },
     async openExternal(url) {
       window.open(url, "_blank", "noopener,noreferrer");
+    },
+  },
+
+  links: {
+    async fetchMeta() {
+      // No CORS-free way to fetch arbitrary pages from the browser. LinkNodes
+      // on web show the host as their title (no enrichment). A server-proxy
+      // path could be added later (decided alongside the Phase 9 web AI proxy).
+      return null;
     },
   },
 };

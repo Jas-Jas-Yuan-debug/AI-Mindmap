@@ -1,4 +1,4 @@
-import type { FileHandle, Platform, RecentFile } from "../shared/platform.js";
+import type { FileHandle, LinkMeta, Platform, RecentFile } from "../shared/platform.js";
 import { notImplemented } from "../shared/platform.js";
 import type { AimapFile } from "../shared/aimap.js";
 import { parseAimapFile } from "../shared/aimap.js";
@@ -20,10 +20,21 @@ interface AimBridgeFiles {
   recent(): Promise<RecentFile[]>;
 }
 
+interface AimBridgeShell {
+  openPath(p: string): Promise<void>;
+  openExternal(url: string): Promise<void>;
+}
+
+interface AimBridgeLinks {
+  fetchMeta(url: string): Promise<LinkMeta | null>;
+}
+
 interface AimBridge {
   kind: "electron";
   version: string;
   files: AimBridgeFiles;
+  shell?: AimBridgeShell;
+  links?: AimBridgeLinks;
 }
 
 function bridge(): AimBridge {
@@ -97,11 +108,19 @@ export const electronPlatform: Platform = {
   },
 
   shell: {
-    async openPath() {
-      notImplemented("electron.shell.openPath");
+    async openPath(p) {
+      await bridge().shell?.openPath(p);
     },
-    async openExternal() {
-      notImplemented("electron.shell.openExternal");
+    async openExternal(url) {
+      await bridge().shell?.openExternal(url);
+    },
+  },
+
+  links: {
+    async fetchMeta(url) {
+      const b = bridge();
+      if (!b.links) return null;
+      return b.links.fetchMeta(url);
     },
   },
 };
