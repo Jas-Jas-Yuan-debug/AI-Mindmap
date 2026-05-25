@@ -22,6 +22,7 @@ import { useZoom } from "./interactions/useZoom.js";
 import { useDeleteKey } from "./interactions/useDeleteKey.js";
 import { useHistoryKeys } from "./interactions/useHistoryKeys.js";
 import { useClipboardKeys } from "./interactions/useClipboardKeys.js";
+import { useFileKeys } from "./interactions/useFileKeys.js";
 import { useCreate } from "./interactions/useCreate.js";
 import { useLasso } from "./interactions/useLasso.js";
 import { useSelectAllKey } from "./interactions/useSelectAllKey.js";
@@ -95,6 +96,8 @@ export function Canvas() {
   const lasso = useLasso();
   // Phase 4 PR 3 (sibling C): Cmd/Ctrl + C / X / V in-app clipboard.
   useClipboardKeys();
+  // Phase 5 PR 2 (this PR): Cmd/Ctrl + N/O/S/Shift+S file menu shortcuts.
+  useFileKeys();
   const create = useCreate();
   // Phase 3 PR 2: drag-from-anchor → new edge. Composed with usePan in
   // onStageMouseDown — anchor mousedown short-circuits pan.
