@@ -24,6 +24,7 @@ import { screenToCanvas } from "../layout.js";
 import { makeNodeId, useNodes } from "../../store/nodes.js";
 import { useSelection } from "../../store/selection.js";
 import { useViewport } from "../../store/viewport.js";
+import { useHistory } from "../../store/history.js";
 
 export const NEW_CARD_WIDTH = 240;
 export const NEW_CARD_HEIGHT = 80;
@@ -49,6 +50,9 @@ export function useCreate(): CreateHandlers {
     const id = makeNodeId();
     const x = Math.round(canvasCursor.x - NEW_CARD_WIDTH / 2);
     const y = Math.round(canvasCursor.y - NEW_CARD_HEIGHT / 2);
+
+    // Phase 4 PR 1: capture the pre-create doc so Cmd+Z removes the new card.
+    useHistory.getState().capture();
 
     useNodes.getState().addNode({
       id,

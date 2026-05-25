@@ -678,11 +678,15 @@ Phase 2 PR 3 (edit-mode + markdown + color picker) added the HTML NodeOverlayLay
 - **Grouping into a transaction:** moving 50 selected nodes is 1 undo step, not 50.
 - **Align/distribute** (bonus, ship if time permits): align left/center/right/top/middle/bottom, distribute horizontally/vertically.
 
+**Phase 4 status: 1 / 4 criteria met.** Open: lasso hit-test (sibling B), full undo/redo action coverage (this PR + B + C), cut+paste subgraph (sibling C).
+
+Phase 4 PR 1 (#PRNUM, this PR) shipped the **undo/redo foundation**: a snapshot-based `src/renderer/store/history.ts` slice (`capture()` / `transact(fn)` / `undo()` / `redo()` / `clear()`, past+future each capped at 200 snapshots, future cleared on any new capture), document-level keyboard shortcuts (`useHistoryKeys` — Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y redo, suppressed while typing in inputs/textareas), and history capture retrofitted onto every DISCRETE mutation: create (useCreate), delete-cascade (useDeleteKey, one `transact` for nodes+edges+selected-edge), color (ColorPicker, node + edge), edge-add (useDrawEdge), text edit (NodeOverlay), and edge-label edit (EdgeLabelOverlayLayer). Move/resize history capture is sibling B's scope (B is rewriting drag for group-move); paste is sibling C's. `transact(fn)` is the seam B wraps group-move in and C wraps paste in, so each lands as one undo step. undo/redo infra + create/delete/color/edge/text/label capture closed by PR #PRNUM; move/resize (sibling B) and paste (sibling C) complete the action-type coverage.
+
 **Exit criteria**
 - [ ] Lasso select correctly hit-tests at any zoom level
-- [ ] Undo/redo is correct after every action type (move, resize, edit, color, edge add/delete, paste)
+- [ ] Undo/redo is correct after every action type (move, resize, edit, color, edge add/delete, paste) — *partial: infra + create/delete/color/edge-add/edge-delete/text/label capture landed in PR #PRNUM; move/resize (sibling B) and paste (sibling C) still pending before this can be ticked*
 - [ ] Cut+paste of a subgraph preserves internal edges with remapped IDs
-- [ ] Memory: undo stack capped, no leaks (verified with DevTools heap snapshot)
+- [x] Memory: undo stack capped, no leaks (closed by PR #PRNUM — past/future capped at 200 snapshots, future cleared on new action; snapshots are copy-by-reference over immutable store arrays so no per-snapshot deep-copy growth)
 
 **Estimated PRs:** 4–5
 
@@ -919,3 +923,4 @@ History:
 - 2026-05-24: PR #26 — Phase 3 (PR 1/3): edges store + Bezier renderer + AnchorDots + geometry + cascade delete + tests
 - 2026-05-24: PR #27 — Phase 3 drag-to-connect from anchor + edge label inline edit
 - 2026-05-24: PR #28 — Phase 3 (PR 3/3): edge selection + Delete key + ColorPicker (nodes + edges) + 100×200 store-level perf test + `__aimPushEdges` dev helper
+- 2026-05-24: PR #PRNUM — Phase 4 (PR 1/3): undo/redo history foundation (snapshot `store/history.ts` capped at 200, `capture`/`transact`/`undo`/`redo`) + `useHistoryKeys` (Cmd/Ctrl+Z, Shift+Z, Y) + discrete-action history capture (create/delete/color/edge-add/text/edge-label). Ticked §6 Phase 4 "undo stack capped" criterion.

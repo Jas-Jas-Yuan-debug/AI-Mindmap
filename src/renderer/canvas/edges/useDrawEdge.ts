@@ -51,6 +51,7 @@ import {
   type DraftSnap,
 } from "../../store/edgeDraft.js";
 import { makeEdgeId, useEdges, type EdgeSide } from "../../store/edges.js";
+import { useHistory } from "../../store/history.js";
 import { anchorPosition } from "./geometry.js";
 
 const ANCHOR_NAME_PREFIX = "aim-anchor-dot";
@@ -174,6 +175,10 @@ export function useDrawEdge(): DrawEdgeHandlers {
     draft.cancel();
     if (!snap || !fromNode || !fromSide) return;
     if (snap.toNode === fromNode) return; // self-loop guard (belt and braces)
+    // Phase 4 PR 1: capture right before the commit (after every early-return
+    // guard above) so we only record history for a drag that actually creates
+    // an edge — a cancelled drag leaves history untouched.
+    useHistory.getState().capture();
     useEdges.getState().addEdge({
       id: makeEdgeId(),
       fromNode,

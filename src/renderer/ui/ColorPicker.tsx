@@ -23,6 +23,7 @@
 import { useEffect, useRef } from "react";
 import { useEdges } from "../store/edges.js";
 import { useNodes } from "../store/nodes.js";
+import { useHistory } from "../store/history.js";
 import type { PresetColor } from "../store/nodes.js";
 import { PRESET_COLOR_MAP } from "../canvas/nodes/TextNode.js";
 import "./ColorPicker.css";
@@ -143,6 +144,9 @@ export function ColorPicker({
   }, [onClose]);
 
   const pick = (color: PresetColor | undefined) => {
+    // Phase 4 PR 1: capture the pre-recolor doc so Cmd+Z restores the old
+    // color (or clears it again). One swatch click = one undo step.
+    useHistory.getState().capture();
     if (targetKind === "edge") {
       applyEdgeColor(targetId, color);
     } else {

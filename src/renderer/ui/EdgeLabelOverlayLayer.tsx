@@ -42,6 +42,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEdges, type Edge } from "../store/edges.js";
 import { useNodes } from "../store/nodes.js";
 import { useViewport } from "../store/viewport.js";
+import { useHistory } from "../store/history.js";
 import { anchorPosition, bezierControlPoints } from "../canvas/edges/geometry.js";
 import { canvasToScreen } from "../canvas/layout.js";
 import "./EdgeLabel.css";
@@ -259,10 +260,16 @@ function EdgeLabelBadge({ edge, x, y, editing, onExitEdit }: EdgeLabelBadgeProps
 
   const commit = useCallback(() => {
     const trimmed = draft.trim();
-    if (trimmed.length === 0) {
+    // Phase 4 PR 1: the label edit buffer is local `draft` state (not written
+    // to the store on every keystroke), so the store still holds the pre-edit
+    // label here. Capture only when an actual change lands — a no-op commit
+    // (re-typing the same label, or blurring an already-empty label) leaves
+    // history untouched.
+    if (trimmed.length === 0 && edge.label !== undefined) {
       // Drop the `label` key entirely. updateEdge({ label: undefined })
       // would keep the key as undefined under shallow merge, conflicting
       // with exactOptionalPropertyTypes. Mirror ColorPicker.pick's pattern.
+      useHistory.getState().capture();
       useEdges.setState((s) => ({
         edges: s.edges.map((e) => {
           if (e.id !== edge.id) return e;
@@ -271,7 +278,8 @@ function EdgeLabelBadge({ edge, x, y, editing, onExitEdit }: EdgeLabelBadgeProps
           return rest as typeof e;
         }),
       }));
-    } else if (trimmed !== edge.label) {
+    } else if (trimmed.length > 0 && trimmed !== edge.label) {
+      useHistory.getState().capture();
       useEdges.getState().updateEdge(edge.id, { label: trimmed });
     }
     onExitEdit();

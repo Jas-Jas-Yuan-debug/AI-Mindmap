@@ -19,6 +19,7 @@ import { useDrawEdge } from "./edges/useDrawEdge.js";
 import { usePan } from "./interactions/usePan.js";
 import { useZoom } from "./interactions/useZoom.js";
 import { useDeleteKey } from "./interactions/useDeleteKey.js";
+import { useHistoryKeys } from "./interactions/useHistoryKeys.js";
 import { useCreate } from "./interactions/useCreate.js";
 import { useEdgeSelectClick } from "./interactions/useEdgeSelectClick.js";
 import { useEdgeContextMenu } from "./interactions/useEdgeContextMenu.js";
@@ -82,6 +83,8 @@ export function Canvas() {
   const pan = usePan();
   const zoomI = useZoom();
   useDeleteKey();
+  // Phase 4 PR 1: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z / Cmd/Ctrl+Y redo.
+  useHistoryKeys();
   const create = useCreate();
   // Phase 3 PR 2: drag-from-anchor → new edge. Composed with usePan in
   // onStageMouseDown — anchor mousedown short-circuits pan.

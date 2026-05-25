@@ -28,6 +28,7 @@ import { useEffect } from "react";
 import { deleteNodeAndEdges, useEdges } from "../../store/edges.js";
 import { useEdgeSelection } from "../../store/edgeSelection.js";
 import { useSelection } from "../../store/selection.js";
+import { useHistory } from "../../store/history.js";
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -47,24 +48,31 @@ export function useDeleteKey(): void {
 
       if (selectedNodeIds.length === 0 && !selectedEdgeId) return;
 
-      // 1. Nodes first — `deleteNodeAndEdges` cascade-removes incident
-      //    edges in the same logical step. The helper is a top-level
-      //    export from store/edges.ts (not a method on useEdges) — it
-      //    orchestrates the two store writes atomically. Phase 4's
-      //    history layer will record both writes under one undo entry.
-      for (const id of selectedNodeIds) deleteNodeAndEdges(id);
-      if (selectedNodeIds.length > 0) {
-        useSelection.getState().clear();
-      }
+      // Phase 4 PR 1: a Delete press can remove many nodes + their cascaded
+      // edges + a discretely-selected edge. Wrap the whole thing in one
+      // `transact` so Cmd+Z restores everything in a SINGLE undo step (plan
+      // §6: "deleting a card also deletes its connected edges — in one
+      // undoable step"). `transact` captures once up-front; the per-store
+      // writes inside don't capture again.
+      useHistory.getState().transact(() => {
+        // 1. Nodes first — `deleteNodeAndEdges` cascade-removes incident
+        //    edges in the same logical step. The helper is a top-level
+        //    export from store/edges.ts (not a method on useEdges) — it
+        //    orchestrates the two store writes atomically.
+        for (const id of selectedNodeIds) deleteNodeAndEdges(id);
+        if (selectedNodeIds.length > 0) {
+          useSelection.getState().clear();
+        }
 
-      // 2. Discrete edge selection — only run if an edge is selected.
-      //    `deleteEdge` is a no-op on a missing id, so this is safe even
-      //    if step 1's cascade already removed it as an incident edge
-      //    (e.g. the user had both a node and one of its edges selected).
-      if (selectedEdgeId) {
-        useEdges.getState().deleteEdge(selectedEdgeId);
-        useEdgeSelection.getState().clear();
-      }
+        // 2. Discrete edge selection — only run if an edge is selected.
+        //    `deleteEdge` is a no-op on a missing id, so this is safe even
+        //    if step 1's cascade already removed it as an incident edge
+        //    (e.g. the user had both a node and one of its edges selected).
+        if (selectedEdgeId) {
+          useEdges.getState().deleteEdge(selectedEdgeId);
+          useEdgeSelection.getState().clear();
+        }
+      });
 
       // Prevent the browser's default (Backspace = back-navigation in some
       // configs; Delete is harmless but we suppress consistently).
