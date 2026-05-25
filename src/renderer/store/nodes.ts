@@ -11,12 +11,18 @@
 // actions, and `makeNodeId` here (runtime concerns); the file format types
 // are imported from the shared module (single source of truth).
 //
-// `AimapNode` deliberately stays `= TextNode`: the canvas only RENDERS text
-// nodes until Phase 6 (group) / Phase 7 (file, link, image). The FILE schema
-// in aimap.ts defines all variants for forward-compat, but the runtime store
-// is intentionally narrowed to what the renderer can draw today. Widening
-// `AimapNode` to the full `Node` union is a Phase 6/7 change, gated on the
-// renderer learning to draw those variants.
+// `AimapNode` is the union the runtime store + renderer operate on. Phase 6
+// (this PR) WIDENED it from `TextNode` to `TextNode | GroupNode` now that the
+// canvas can draw group containers (see `canvas/nodes/GroupNode.tsx`). File /
+// link / image variants stay out of the runtime union until Phase 7 teaches
+// the renderer to draw them. The FILE schema in aimap.ts always defines all
+// variants for forward-compat; the runtime union is narrowed to what the
+// renderer can draw today.
+//
+// CONSEQUENCE for consumers: code that reaches for `TextNode`-only fields
+// (e.g. `.text`) MUST narrow with `node.type === "text"` first. The markdown
+// overlay (`ui/NodeOverlay*.tsx`) and the `TextNodeCard` renderer are guarded
+// this way; `GroupNode` is drawn by `GroupNodeBox`.
 //
 // Public API used by sibling subagents:
 //   - `useNodes` — the Zustand hook. Move/resize/delete/create + edit/color
@@ -43,15 +49,16 @@ export type {
   Node as AimapFileNode,
 } from "../../shared/aimap.js";
 
-import type { TextNode } from "../../shared/aimap.js";
+import type { GroupNode, TextNode } from "../../shared/aimap.js";
 
 /**
- * The node shape the runtime store + renderer operate on. Narrowed to
- * `TextNode` because the canvas only draws text nodes today; the on-disk
- * `Node` union (see aimap.ts) is wider. Re-exported as `AimapFileNode` above
- * for code that needs the full union. Widen this in Phase 6/7.
+ * The node shape the runtime store + renderer operate on. Phase 6 widened
+ * this to `TextNode | GroupNode` (the canvas now draws both). File / link /
+ * image variants from the on-disk `Node` union (see aimap.ts) join when the
+ * renderer learns to draw them in Phase 7. Re-exported as `AimapFileNode`
+ * above for code that needs the full union.
  */
-export type AimapNode = TextNode;
+export type AimapNode = TextNode | GroupNode;
 
 export interface NodesState {
   nodes: AimapNode[];
@@ -112,4 +119,13 @@ export const useNodes = create<NodesState>((set) => ({
  */
 export function makeNodeId(): string {
   return makeId("n");
+}
+
+/**
+ * Mint a fresh group-node id. Same id space as nodes (groups ARE nodes), but
+ * the `"g"` prefix makes group ids legible in dev tooling and serialized
+ * files. Delegates to the canonical `makeId` helper.
+ */
+export function makeGroupId(): string {
+  return makeId("g");
 }

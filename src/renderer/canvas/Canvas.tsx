@@ -11,6 +11,7 @@ import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
 import { LassoLayer } from "./LassoLayer.js";
 import { TextNodeCard } from "./nodes/TextNode.js";
+import { GroupNodeBox } from "./nodes/GroupNode.js";
 import { AnchorDots } from "./nodes/AnchorDots.js";
 import { EdgesLayer } from "./edges/EdgesLayer.js";
 import { EdgeDraft } from "./edges/EdgeDraft.js";
@@ -55,8 +56,18 @@ import { useEdgeContextMenu } from "./interactions/useEdgeContextMenu.js";
 //   - Edge Hit Layer    (this PR, transparent hit targets, listening:true)
 //   - Edge Draft Layer  (PR 2, ghost edge, listening:false)
 //   - Edge Selection Highlight (this PR, focus overlay, listening:false)
-//   - Nodes Layer       (TextNodeCard + per-node Group{ AnchorDots })
+//   - Nodes Layer       (group containers, THEN TextNodeCard + AnchorDots)
 //   - Origin Layer      (listening:false, debug crosshair on top)
+//
+// Phase 6 (sibling A) z-order: within the Nodes Layer we render group
+// containers in a FIRST pass and non-group nodes in a SECOND pass, so a group
+// always sits BEHIND its children (plan §6 Phase 6: "groups always render
+// behind their children"). We chose a stable two-pass render over re-sorting
+// the store array because it (a) keeps the store's array order — which IS the
+// document z-order per plan §5 "z-order is array order" — untouched, and (b)
+// preserves relative order WITHIN each pass. Full nested-group inter-leaving
+// (a child group above its parent but below an unrelated top-level node) is
+// sibling B's refinement; groups-behind-everything-else is the foundation.
 
 function useStageSize() {
   const [size, setSize] = useState(() => ({
@@ -105,6 +116,17 @@ export function Canvas() {
   // Phase 3 PR 3: edge click selection + right-click color picker.
   const edgeSelect = useEdgeSelectClick();
   useEdgeContextMenu(stageRef);
+
+  // Shared select-on-pointer-down used by both passes of the Nodes Layer
+  // (group containers + text cards). Phase 4 semantics: Shift toggles into a
+  // multi-selection; a plain click single-selects (replacing the prior
+  // selection). The drag handlers in TextNode/GroupNode also single-select an
+  // unselected node on drag-start, so a shift-click that ADDS a node still
+  // lets a subsequent group-move drag carry the whole set.
+  const selectNode = (id: string, shift: boolean) => {
+    if (shift) useSelection.getState().toggle(id);
+    else useSelection.getState().select(id);
+  };
 
   // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
   const onWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -193,38 +215,45 @@ export function Canvas() {
       </Layer>
       <EdgeSelectionHighlight />
       <Layer>
-        {nodes.map((n) => {
-          const selected = Boolean(selectionIds[n.id]);
-          return (
-            <Fragment key={n.id}>
-              <TextNodeCard
+        {/* Pass 1 (BEHIND): group containers. Rendered first so children in
+            pass 2 always paint on top of their group. */}
+        {nodes
+          .filter((n) => n.type === "group")
+          .map((n) => {
+            const selected = Boolean(selectionIds[n.id]);
+            return (
+              <GroupNodeBox
+                key={n.id}
                 node={n}
                 selected={selected}
-                onSelect={(e) => {
-                  // Phase 4: Shift+click toggles the node in/out of a multi-
-                  // selection; a plain click single-selects (replacing the
-                  // prior selection). The drag handler in TextNode also
-                  // single-selects an unselected node on drag-start, so a
-                  // shift-click that ADDS a node still lets the subsequent
-                  // group drag move the whole set.
-                  if (e.evt.shiftKey) {
-                    useSelection.getState().toggle(n.id);
-                  } else {
-                    useSelection.getState().select(n.id);
-                  }
-                }}
+                onSelect={(e) => selectNode(n.id, e.evt.shiftKey)}
               />
-              {/* AnchorDots use local coords (positions returned by
-                  geometry.anchorPosition are relative to {0,0,width,height}),
-                  so we wrap them in a Group at the node's canvas position.
-                  Rendered AFTER the TextNode so the dots visually sit
-                  above the card. */}
-              <Group x={n.x} y={n.y}>
-                <AnchorDots node={n} visible={selected} />
-              </Group>
-            </Fragment>
-          );
-        })}
+            );
+          })}
+        {/* Pass 2 (ON TOP): non-group nodes (text cards today; file/link/
+            image join in Phase 7). */}
+        {nodes
+          .filter((n) => n.type === "text")
+          .map((n) => {
+            const selected = Boolean(selectionIds[n.id]);
+            return (
+              <Fragment key={n.id}>
+                <TextNodeCard
+                  node={n}
+                  selected={selected}
+                  onSelect={(e) => selectNode(n.id, e.evt.shiftKey)}
+                />
+                {/* AnchorDots use local coords (positions returned by
+                    geometry.anchorPosition are relative to {0,0,width,
+                    height}), so we wrap them in a Group at the node's canvas
+                    position. Rendered AFTER the TextNode so the dots visually
+                    sit above the card. */}
+                <Group x={n.x} y={n.y}>
+                  <AnchorDots node={n} visible={selected} />
+                </Group>
+              </Fragment>
+            );
+          })}
       </Layer>
       <Layer listening={false}>
         <Origin />

@@ -285,7 +285,9 @@ describe("copySelection (store-driven)", () => {
     // Mutate the live node after copying.
     useNodes.getState().updateNode("a", { text: "changed" });
 
-    expect(getClipboard()!.nodes[0]!.text).toBe("orig");
+    // AimapNode is a TextNode | GroupNode union (Phase 6); narrow to read text.
+    const copied = getClipboard()!.nodes[0]!;
+    expect(copied.type === "text" ? copied.text : undefined).toBe("orig");
   });
 });
 

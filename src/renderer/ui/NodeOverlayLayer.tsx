@@ -27,7 +27,7 @@
 // state would have forced a parallel picker instance, which is worse UX.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNodes } from "../store/nodes.js";
+import { useNodes, type AimapNode, type TextNode } from "../store/nodes.js";
 import { useViewport } from "../store/viewport.js";
 import { useSelection } from "../store/selection.js";
 import { useColorPicker } from "../store/colorPicker.js";
@@ -60,14 +60,27 @@ function hitTest(rects: OverlayRect[], x: number, y: number): OverlayRect | null
   return null;
 }
 
+/** Narrow the runtime node union down to text nodes. Group nodes (Phase 6)
+ *  have no markdown body / editable text, so they get no DOM overlay — the
+ *  Konva `GroupNodeBox` draws them entirely, and their (future) label editor
+ *  is sibling C's scope, not this markdown overlay. */
+function isTextNode(n: AimapNode): n is TextNode {
+  return n.type === "text";
+}
+
 export function NodeOverlayLayer() {
-  const nodes = useNodes((s) => s.nodes);
+  const allNodes = useNodes((s) => s.nodes);
   const vx = useViewport((s) => s.x);
   const vy = useViewport((s) => s.y);
   const zoom = useViewport((s) => s.zoom);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const picker = useColorPicker((s) => s.open);
+
+  // Only text nodes get a markdown / edit overlay. Groups are drawn purely in
+  // Konva (GroupNodeBox); filtering here means the rest of this component can
+  // treat every entry as a TextNode without per-item type guards.
+  const nodes = useMemo(() => allNodes.filter(isTextNode), [allNodes]);
 
   // Precompute screen rects once per render — used both for positioning the
   // overlays AND for window-level hit-testing.
