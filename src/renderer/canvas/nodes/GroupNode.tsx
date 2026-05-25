@@ -27,13 +27,24 @@
 // identify a group container by walking the Konva ancestor chain — mirrors
 // the `name="text-node"` convention TextNode established.
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Rect, Text } from "react-konva";
 import type { GroupNode } from "../../store/nodes.js";
 import { useNodes } from "../../store/nodes.js";
 import { useHistory } from "../../store/history.js";
+import { useViewport } from "../../store/viewport.js";
 import { resolveColor } from "./TextNode.js";
+import { descendantsOf, childrenOf, setParent } from "../../store/reparent.js";
+import { reparentOnDrop } from "../interactions/dropReparent.js";
+import { isMostlyInside } from "../interactions/groupHitTest.js";
+import {
+  computeResize,
+  handleCursor,
+  handlePosition,
+  RESIZE_HANDLES,
+  type ResizeHandle,
+} from "../interactions/resize.js";
 
 // --- Visual constants -------------------------------------------------
 //
@@ -71,6 +82,14 @@ const HEADER_FILL = "rgba(148, 163, 184, 0.18)";
 const LABEL_COLOR = "#475569"; // slate-600
 const LABEL_FONT_SIZE = 13;
 
+// Resize-handle visuals — mirror TextNode's so a group's 8-handle resize
+// looks/behaves the same as a card's. Sized in SCREEN pixels (divided by zoom)
+// so they stay grabbable at any zoom. (Phase 6 sibling B.)
+const HANDLE_SCREEN_SIZE = 10;
+const HANDLE_FILL = "#ffffff";
+const HANDLE_STROKE = "#6965db";
+const HANDLE_STROKE_WIDTH = 1.5;
+
 export interface GroupNodeBoxProps {
   node: GroupNode;
   selected: boolean;
@@ -98,7 +117,20 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
     ? hexToRgba(resolveColor(node.color), 0.12)
     : DEFAULT_BODY_FILL;
 
-  const dragRef = useRef<{ originX: number; originY: number } | null>(null);
+  // Drag bookkeeping: the group's origin at drag start plus a snapshot of
+  // every DESCENDANT's start (x,y). We add the group's delta to each
+  // descendant's recorded start (never accumulating off the live store, which
+  // would compound rounding drift) — mirrors TextNode's peer-move pattern.
+  const dragRef = useRef<{
+    originX: number;
+    originY: number;
+    descendants: { id: string; x: number; y: number }[];
+  } | null>(null);
+
+  // Subscribe to zoom so resize handles keep a constant screen size.
+  const zoom = useViewport((s) => s.zoom);
+  const handleCanvasSize = HANDLE_SCREEN_SIZE / zoom;
+  const handles = useMemo(() => RESIZE_HANDLES, []);
 
   const pointerHandlers = onSelect
     ? {
@@ -109,24 +141,116 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
       }
     : {};
 
-  // Minimal drag: move THIS group only. Sibling B extends this to also move
-  // childrenOf(group). One undo step per gesture (capture on start).
+  // Drag the group → move the WHOLE subtree (children, grandchildren, …)
+  // together. One undo step per gesture (capture on start). Phase 6 sibling B
+  // extended A's minimal self-drag at the NOTE marker below.
   const onDragStart = (e: KonvaEventObject<DragEvent>) => {
     useHistory.getState().capture();
-    dragRef.current = { originX: e.target.x(), originY: e.target.y() };
+    const liveNodes = useNodes.getState().nodes;
+    // Snapshot every descendant's start position so we apply a clean delta on
+    // each tick. descendantsOf walks the full subtree, so nested groups (and
+    // their children) move correctly too (plan §6 nested-groups criterion).
+    const descendants = descendantsOf(liveNodes, node.id).map((n) => ({
+      id: n.id,
+      x: n.x,
+      y: n.y,
+    }));
+    dragRef.current = {
+      originX: e.target.x(),
+      originY: e.target.y(),
+      descendants,
+    };
   };
 
   const onDragMove = (e: KonvaEventObject<DragEvent>) => {
     const x = Math.round(e.target.x());
     const y = Math.round(e.target.y());
     useNodes.getState().moveNode(node.id, x, y);
-    // NOTE(claude/phase-6-A): children intentionally NOT moved here — that is
-    // sibling B's "group move" scope (read childrenOf(nodes, node.id) and
-    // apply the same delta). Leaving the hook obvious so B can extend it.
+    // NOTE(claude/phase-6-A → extended by phase-6-B): move the group's whole
+    // subtree by the same delta. The group's OWN position is already moved by
+    // Konva's draggable (the moveNode above); here we only move the
+    // descendants, so we never double-apply to the group itself.
+    const g = dragRef.current;
+    if (g && g.descendants.length > 0) {
+      const dx = e.target.x() - g.originX;
+      const dy = e.target.y() - g.originY;
+      const move = useNodes.getState().moveNode;
+      for (const d of g.descendants) {
+        move(d.id, Math.round(d.x + dx), Math.round(d.y + dy));
+      }
+    }
   };
 
   const onDragEnd = () => {
+    // Phase 6 (sibling B): a group can be dropped INTO another group (nested
+    // groups) or out to the top level. Reparent by the group's center against
+    // the other group rects; reparentOnDrop excludes this group's own subtree
+    // so it can never be dropped into itself / a descendant (cycle guard is
+    // the backstop). Folds into the same undo step as the move (capture ran on
+    // drag start; setParent does not re-capture).
+    reparentOnDrop(node.id);
     dragRef.current = null;
+  };
+
+  // --- Resize handles ----------------------------------------------------
+  // Groups are resized with the same 8-handle affordance as text cards, but
+  // with the larger group minimums. Children are NOT resized with the group.
+  // On resize END, any DIRECT child no longer mostly inside the new bounds is
+  // detached to the top level (plan §6: "children outside new bounds get
+  // parentId cleared"). The whole resize is one undo step (capture on start).
+  const onHandleDragMove = (handle: ResizeHandle) =>
+    (e: KonvaEventObject<DragEvent>) => {
+      const stage = e.target.getStage();
+      if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      const v = useViewport.getState();
+      const canvasCursor = {
+        x: (pointer.x - v.x) / v.zoom,
+        y: (pointer.y - v.y) / v.zoom,
+      };
+      const live = useNodes.getState().nodes.find((n) => n.id === node.id);
+      if (!live) return;
+      const result = computeResize(handle, live, canvasCursor, {
+        minWidth: GROUP_MIN_WIDTH,
+        minHeight: GROUP_MIN_HEIGHT,
+      });
+      useNodes
+        .getState()
+        .resizeNode(
+          node.id,
+          Math.round(result.width),
+          Math.round(result.height),
+          result.x !== undefined ? Math.round(result.x) : undefined,
+          result.y !== undefined ? Math.round(result.y) : undefined,
+        );
+    };
+
+  const onResizeEnd = () => {
+    // Detach direct children that the resize pushed (mostly) outside the new
+    // bounds. Read live geometry after the resize settled. Wrapped in a
+    // transact so the detaches are one undo step (the capture on resize START
+    // already snapshotted; transact here is a no-op capture but groups any
+    // multi-child detach cleanly).
+    const liveNodes = useNodes.getState().nodes;
+    const self = liveNodes.find((n) => n.id === node.id);
+    if (!self) return;
+    const bounds = {
+      x: self.x,
+      y: self.y,
+      width: self.width,
+      height: self.height,
+    };
+    const escapees = childrenOf(liveNodes, node.id).filter(
+      (child) =>
+        !isMostlyInside(
+          { x: child.x, y: child.y, width: child.width, height: child.height },
+          bounds,
+        ),
+    );
+    for (const child of escapees) {
+      setParent(child.id, null);
+    }
   };
 
   const labelText = node.label ?? "Group";
@@ -182,6 +306,48 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         wrap="none"
         listening={false}
       />
+      {/* Resize handles (only when selected). 8 draggable handles using the
+          shared resize math, clamped to the group minimums. On resize end,
+          children no longer inside the new bounds are detached. */}
+      {selected
+        ? handles.map((h) => {
+            const pos = handlePosition(h, node.width, node.height);
+            const half = handleCanvasSize / 2;
+            const cursor = handleCursor(h);
+            return (
+              <Rect
+                key={h}
+                x={pos.x - half}
+                y={pos.y - half}
+                width={handleCanvasSize}
+                height={handleCanvasSize}
+                fill={HANDLE_FILL}
+                stroke={HANDLE_STROKE}
+                strokeWidth={HANDLE_STROKE_WIDTH}
+                strokeScaleEnabled={false}
+                draggable
+                // Capture once at resize start = one undo step for the whole
+                // resize (matching TextNode). The child-detach on resize end
+                // folds into the same step (setParent does not re-capture).
+                // Konva makes the innermost draggable (this Rect) own the drag,
+                // so the group's own draggable doesn't fire — same as TextNode.
+                onDragStart={() => useHistory.getState().capture()}
+                onDragMove={onHandleDragMove(h)}
+                onDragEnd={onResizeEnd}
+                onMouseEnter={(e) => {
+                  const stage = e.target.getStage();
+                  const container = stage?.container();
+                  if (container) container.style.cursor = cursor;
+                }}
+                onMouseLeave={(e) => {
+                  const stage = e.target.getStage();
+                  const container = stage?.container();
+                  if (container) container.style.cursor = "";
+                }}
+              />
+            );
+          })
+        : null}
     </Group>
   );
 }
