@@ -5,7 +5,10 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useViewport } from "../store/viewport.js";
 import { useSettings } from "../store/settings.js";
 import { useNodes } from "../store/nodes.js";
-import { depthOf as groupDepth } from "../store/reparent.js";
+import {
+  depthOf as groupDepth,
+  isHiddenByCollapsedAncestor,
+} from "../store/reparent.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
 import { Grid } from "./Grid.js";
@@ -92,6 +95,15 @@ export function Canvas() {
   const gridVisible = useSettings((s) => s.gridVisible);
   const nodes = useNodes((s) => s.nodes);
   const selectionIds = useSelection((s) => s.ids);
+
+  // Phase 6 (sibling C) collapse: a collapsed group hides its whole subtree.
+  // We filter the rendered set so hidden descendants neither paint NOR
+  // hit-test (they're simply not in the Konva tree). The collapsed group
+  // itself stays visible (it shows its child count in the header). Computed
+  // here once per render so both passes share the same visibility decision.
+  const visibleNodes = nodes.filter(
+    (n) => !isHiddenByCollapsedAncestor(nodes, n.id),
+  );
 
   // Stage ref — needed by useEdgeContextMenu so it can attach a DOM
   // listener to the Konva container and call `Stage.getIntersection`.
@@ -223,7 +235,7 @@ export function Canvas() {
             border / label stay visible. Text nodes still paint above ALL
             groups (pass 2), so deepening the group order never hides a card.
             Stable: equal-depth groups keep store-array (z-order) order. */}
-        {nodes
+        {visibleNodes
           .filter((n) => n.type === "group")
           .map((n) => ({ n, depth: groupDepth(nodes, n.id) }))
           .sort((a, b) => a.depth - b.depth)
@@ -240,7 +252,7 @@ export function Canvas() {
           })}
         {/* Pass 2 (ON TOP): non-group nodes (text cards today; file/link/
             image join in Phase 7). */}
-        {nodes
+        {visibleNodes
           .filter((n) => n.type === "text")
           .map((n) => {
             const selected = Boolean(selectionIds[n.id]);

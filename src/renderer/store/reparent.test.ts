@@ -17,9 +17,11 @@ import {
   depthOf,
   descendantsOf,
   isDescendant,
+  isHiddenByCollapsedAncestor,
   setParent,
   wouldCreateCycle,
 } from "./reparent.js";
+import { useHistory } from "./history.js";
 
 // --- Fixtures --------------------------------------------------------------
 
@@ -31,6 +33,11 @@ const group = (id: string, parentId?: string): GroupNode => ({
   width: 320,
   height: 200,
   ...(parentId !== undefined ? { parentId } : {}),
+});
+
+const collapsedGroup = (id: string, parentId?: string): GroupNode => ({
+  ...group(id, parentId),
+  collapsed: true,
 });
 
 const text = (id: string, parentId?: string): TextNode => ({
@@ -245,5 +252,144 @@ describe("setParent", () => {
   test("moving a sibling under a sibling group is allowed", () => {
     expect(setParent("D", "B")).toBe(true);
     expect(parentOf("D")).toBe("B");
+  });
+});
+
+// --- isHiddenByCollapsedAncestor -------------------------------------------
+
+describe("isHiddenByCollapsedAncestor", () => {
+  // Tree:
+  //   A (group, collapsed)
+  //   ├── B (group, parent A)        ← hidden (ancestor A collapsed)
+  //   │   └── C (text,  parent B)    ← hidden (ancestor A collapsed)
+  //   └── D (text,  parent A)        ← hidden (parent A collapsed)
+  //   E (text, top-level)            ← visible
+  const collapsedTree = (): AimapNode[] => [
+    collapsedGroup("A"),
+    group("B", "A"),
+    text("C", "B"),
+    text("D", "A"),
+    text("E"),
+  ];
+
+  test("a top-level node is never hidden", () => {
+    expect(isHiddenByCollapsedAncestor(collapsedTree(), "E")).toBe(false);
+  });
+
+  test("the collapsed group ITSELF is not hidden (it still draws its header)", () => {
+    expect(isHiddenByCollapsedAncestor(collapsedTree(), "A")).toBe(false);
+  });
+
+  test("a direct child of a collapsed group is hidden", () => {
+    expect(isHiddenByCollapsedAncestor(collapsedTree(), "D")).toBe(true);
+    expect(isHiddenByCollapsedAncestor(collapsedTree(), "B")).toBe(true);
+  });
+
+  test("a transitive descendant of a collapsed group is hidden", () => {
+    // C is under B under collapsed A.
+    expect(isHiddenByCollapsedAncestor(collapsedTree(), "C")).toBe(true);
+  });
+
+  test("an EXPANDED group's descendants are visible", () => {
+    // Same shape but A is NOT collapsed.
+    const nodes: AimapNode[] = [
+      group("A"),
+      group("B", "A"),
+      text("C", "B"),
+      text("D", "A"),
+    ];
+    expect(isHiddenByCollapsedAncestor(nodes, "B")).toBe(false);
+    expect(isHiddenByCollapsedAncestor(nodes, "C")).toBe(false);
+    expect(isHiddenByCollapsedAncestor(nodes, "D")).toBe(false);
+  });
+
+  test("a node's OWN collapsed flag does not hide it", () => {
+    // A is collapsed but top-level — it must still render (header + count).
+    expect(isHiddenByCollapsedAncestor([collapsedGroup("A")], "A")).toBe(false);
+  });
+
+  test("hidden when ANY ancestor up the chain is collapsed (nested collapse)", () => {
+    // Outer expanded, inner collapsed: a grandchild of the inner is hidden.
+    const nodes: AimapNode[] = [
+      group("outer"),
+      collapsedGroup("inner", "outer"),
+      text("leaf", "inner"),
+    ];
+    expect(isHiddenByCollapsedAncestor(nodes, "inner")).toBe(false); // inner itself shows
+    expect(isHiddenByCollapsedAncestor(nodes, "leaf")).toBe(true);
+  });
+
+  test("does not hang on a malformed parentId loop", () => {
+    // X ↔ Y point at each other; neither is a group, so neither is hidden,
+    // and the seen-guard must terminate the walk.
+    const nodes: AimapNode[] = [text("X", "Y"), text("Y", "X")];
+    expect(isHiddenByCollapsedAncestor(nodes, "X")).toBe(false);
+  });
+
+  test("a dangling parentId (missing ancestor) is treated as visible", () => {
+    const nodes: AimapNode[] = [text("orphan", "ghost")];
+    expect(isHiddenByCollapsedAncestor(nodes, "orphan")).toBe(false);
+  });
+});
+
+// --- Undo / redo of re-parenting -------------------------------------------
+//
+// Plan §6 Phase 6 exit criterion: "Undo/redo works for re-parenting." A
+// reparent must be undoable in ONE step and redoable. The caller wraps the
+// reparent in `transact` (or a manual `capture()` before `setParent`) so the
+// pre-reparent document is snapshotted; undo restores it, redo re-applies.
+
+describe("undo / redo of re-parenting", () => {
+  beforeEach(() => {
+    useNodes.setState({ nodes: tree() });
+    useHistory.getState().clear();
+  });
+
+  const parentOf = (id: string) =>
+    useNodes.getState().nodes.find((n) => n.id === id)?.parentId;
+
+  test("transact(setParent) is undoable in ONE step and redoable", () => {
+    // E starts top-level. Reparent it under A inside a transaction.
+    useHistory.getState().transact(() => {
+      expect(setParent("E", "A")).toBe(true);
+    });
+    expect(parentOf("E")).toBe("A");
+
+    // One undo restores E to the top level.
+    useHistory.getState().undo();
+    expect(parentOf("E")).toBeUndefined();
+
+    // Redo re-applies the reparent.
+    useHistory.getState().redo();
+    expect(parentOf("E")).toBe("A");
+  });
+
+  test("undo of a DETACH (setParent null) restores the prior parent", () => {
+    // D starts as a child of A. Detach it to the top level.
+    useHistory.getState().transact(() => {
+      expect(setParent("D", null)).toBe(true);
+    });
+    expect(parentOf("D")).toBeUndefined();
+
+    useHistory.getState().undo();
+    expect(parentOf("D")).toBe("A");
+
+    useHistory.getState().redo();
+    expect(parentOf("D")).toBeUndefined();
+  });
+
+  test("a reparent + the move it rides with collapse into one undo step", () => {
+    // Mirrors the drag-onto-group gesture: capture once, then move + reparent.
+    useHistory.getState().transact(() => {
+      useNodes.getState().moveNode("E", 500, 500);
+      expect(setParent("E", "A")).toBe(true);
+    });
+    expect(parentOf("E")).toBe("A");
+    expect(useNodes.getState().nodes.find((n) => n.id === "E")?.x).toBe(500);
+
+    // A SINGLE undo reverts BOTH the move and the reparent.
+    useHistory.getState().undo();
+    expect(parentOf("E")).toBeUndefined();
+    expect(useNodes.getState().nodes.find((n) => n.id === "E")?.x).toBe(0);
   });
 });

@@ -11,9 +11,11 @@
 //   - Subagent B: drag-a-node-into / out-of a group (sets/clears parentId via
 //     A's `setParent`), and "drag the group → all children move together"
 //     (extends the minimal drag below to also move `childrenOf(group)`).
-//   - Subagent C: editable label (replaces the static header Text below) and
-//     collapse (hide descendants + show child count) — this file only renders
-//     a tiny placeholder affordance for `collapsed` today.
+//   - Subagent C (this PR): editable label (double-click the header → an HTML
+//     overlay input in `ui/GroupOverlayLayer.tsx`; the Konva Text below is the
+//     read-mode display) and COLLAPSE — a chevron toggle in the header flips
+//     `collapsed`; when collapsed the header shows the hidden-descendant count
+//     ("Group (5)") and Canvas.tsx filters the subtree out of the render.
 //
 // Drag (minimal, foundation only): Konva's built-in `draggable` mirrors this
 // group's own x/y into the store via `moveNode`, so a group is at least
@@ -29,7 +31,7 @@
 
 import { useMemo, useRef } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Group, Rect, Text } from "react-konva";
+import { Group, Line, Rect, Text } from "react-konva";
 import type { GroupNode } from "../../store/nodes.js";
 import { useNodes } from "../../store/nodes.js";
 import { useHistory } from "../../store/history.js";
@@ -131,6 +133,26 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
   const zoom = useViewport((s) => s.zoom);
   const handleCanvasSize = HANDLE_SCREEN_SIZE / zoom;
   const handles = useMemo(() => RESIZE_HANDLES, []);
+
+  // Subscribe to the node array so the collapsed header's child count stays
+  // live as nodes are added / removed / reparented. We count the WHOLE subtree
+  // (descendantsOf, not just direct children) because collapse hides the whole
+  // subtree, so the count reflects exactly what's hidden.
+  const allNodes = useNodes((s) => s.nodes);
+  const descendantCount = node.collapsed
+    ? descendantsOf(allNodes, node.id).length
+    : 0;
+
+  // Collapse toggle (Phase 6 sibling C). One undo step per toggle (capture
+  // before the flip). Stops propagation so clicking the chevron neither starts
+  // a group drag nor changes the selection.
+  const toggleCollapsed = (
+    e: KonvaEventObject<MouseEvent> | KonvaEventObject<TouchEvent>,
+  ) => {
+    e.cancelBubble = true;
+    useHistory.getState().capture();
+    useNodes.getState().updateNode(node.id, { collapsed: !node.collapsed });
+  };
 
   const pointerHandlers = onSelect
     ? {
@@ -253,7 +275,37 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
     }
   };
 
-  const labelText = node.label ?? "Group";
+  const labelBase = node.label ?? "Group";
+  // Collapsed groups append the hidden-descendant count, e.g. "Group (5)".
+  const labelText = node.collapsed
+    ? `${labelBase} (${descendantCount})`
+    : labelBase;
+
+  // Chevron geometry: a small triangle on the left of the header. Points DOWN
+  // when expanded (subtree visible below), RIGHT when collapsed (subtree
+  // tucked away) — the familiar disclosure-triangle convention.
+  const chevronCx = 14;
+  const chevronCy = GROUP_HEADER_HEIGHT / 2;
+  const chevronR = 5;
+  const chevronPoints = node.collapsed
+    ? // pointing RIGHT (collapsed)
+      [
+        chevronCx - chevronR / 2,
+        chevronCy - chevronR,
+        chevronCx - chevronR / 2,
+        chevronCy + chevronR,
+        chevronCx + chevronR,
+        chevronCy,
+      ]
+    : // pointing DOWN (expanded)
+      [
+        chevronCx - chevronR,
+        chevronCy - chevronR / 2,
+        chevronCx + chevronR,
+        chevronCy - chevronR / 2,
+        chevronCx,
+        chevronCy + chevronR,
+      ];
 
   return (
     <Group
@@ -293,12 +345,46 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         fill={HEADER_FILL}
         listening={false}
       />
-      {/* Static label (sibling C makes this an editable overlay). */}
+      {/* Disclosure chevron — points down when expanded, right when
+          collapsed. A larger transparent Rect behind it is the real hit
+          target so it stays easy to click. Toggling captures + flips
+          `collapsed` (one undo step) and stops propagation so it doesn't
+          start a group drag or change selection. */}
+      <Rect
+        x={chevronCx - GROUP_HEADER_HEIGHT / 2}
+        y={0}
+        width={GROUP_HEADER_HEIGHT}
+        height={GROUP_HEADER_HEIGHT}
+        fill="transparent"
+        onMouseDown={toggleCollapsed}
+        onTouchStart={
+          toggleCollapsed as unknown as (
+            e: KonvaEventObject<TouchEvent>,
+          ) => void
+        }
+        onMouseEnter={(e) => {
+          const c = e.target.getStage()?.container();
+          if (c) c.style.cursor = "pointer";
+        }}
+        onMouseLeave={(e) => {
+          const c = e.target.getStage()?.container();
+          if (c) c.style.cursor = "";
+        }}
+      />
+      <Line
+        points={chevronPoints}
+        closed
+        fill={LABEL_COLOR}
+        listening={false}
+      />
+      {/* Read-mode label. Editing happens via the HTML overlay in
+          ui/GroupOverlayLayer.tsx (double-click the header). Shifted right of
+          the chevron. When collapsed, the text includes the hidden count. */}
       <Text
-        x={10}
+        x={chevronCx + chevronR + 6}
         y={GROUP_HEADER_HEIGHT / 2 - LABEL_FONT_SIZE / 2}
-        width={node.width - 20}
-        text={node.collapsed ? `${labelText}  (collapsed)` : labelText}
+        width={node.width - (chevronCx + chevronR + 6) - 10}
+        text={labelText}
         fontSize={LABEL_FONT_SIZE}
         fontStyle="bold"
         fill={LABEL_COLOR}
