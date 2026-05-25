@@ -1,5 +1,14 @@
-import type { FileHandle, LinkMeta, Platform, RecentFile } from "../shared/platform.js";
+import type {
+  AIChunk,
+  AIRequest,
+  AIResponse,
+  FileHandle,
+  LinkMeta,
+  Platform,
+  RecentFile,
+} from "../shared/platform.js";
 import { notImplemented } from "../shared/platform.js";
+import { makeId } from "../shared/aimap.js";
 import type { AimapFile } from "../shared/aimap.js";
 import { parseAimapFile } from "../shared/aimap.js";
 import { migrate } from "../shared/migrations/index.js";
@@ -29,12 +38,38 @@ interface AimBridgeLinks {
   fetchMeta(url: string): Promise<LinkMeta | null>;
 }
 
+type AiStreamEvent =
+  | { type: "chunk"; delta: string; done: boolean }
+  | { type: "done" }
+  | { type: "error"; error: { kind: string; message: string } };
+
+interface AimBridgeAi {
+  hasKey(): Promise<boolean>;
+  setKey(key: string): Promise<void>;
+  complete(
+    req: AIRequest,
+  ): Promise<
+    { ok: true; response: AIResponse } | { ok: false; error: { kind: string; message: string } }
+  >;
+  stream(id: string, req: AIRequest, onEvent: (ev: AiStreamEvent) => void): () => void;
+}
+
 interface AimBridge {
   kind: "electron";
   version: string;
   files: AimBridgeFiles;
   shell?: AimBridgeShell;
   links?: AimBridgeLinks;
+  ai?: AimBridgeAi;
+}
+
+/** Thrown by platform.ai.complete on failure; carries the classified kind. */
+export class AIErrorException extends Error {
+  readonly kind: string;
+  constructor(kind: string, message: string) {
+    super(message);
+    this.kind = kind;
+  }
 }
 
 function bridge(): AimBridge {
@@ -82,17 +117,68 @@ export const electronPlatform: Platform = {
   },
 
   ai: {
-    async complete() {
-      notImplemented("electron.ai.complete");
-    },
-    async *stream() {
-      notImplemented("electron.ai.stream");
-    },
     async hasKey() {
-      return false;
+      return (await bridge().ai?.hasKey()) ?? false;
     },
-    async setKey() {
-      notImplemented("electron.ai.setKey");
+    async setKey(key) {
+      await bridge().ai?.setKey(key);
+    },
+    async complete(req: AIRequest): Promise<AIResponse> {
+      const ai = bridge().ai;
+      if (!ai) throw new AIErrorException("no_key", "AI bridge unavailable.");
+      const r = await ai.complete(req);
+      if (!r.ok) throw new AIErrorException(r.error.kind, r.error.message);
+      return r.response;
+    },
+    stream(req: AIRequest): AsyncIterable<AIChunk> {
+      const ai = bridge().ai;
+      if (!ai) {
+        // Surface as a one-shot error chunk-less iterable that throws on use.
+        return (async function* () {
+          throw new AIErrorException("no_key", "AI bridge unavailable.");
+        })();
+      }
+      // Adapt the callback bridge into an async iterable via a small queue.
+      const id = makeId("aistream");
+      const queue: AIChunk[] = [];
+      let resolveNext: (() => void) | null = null;
+      let finished = false;
+      let failure: AIErrorException | null = null;
+      const wake = () => {
+        if (resolveNext) {
+          const r = resolveNext;
+          resolveNext = null;
+          r();
+        }
+      };
+      const unsubscribe = ai.stream(id, req, (ev) => {
+        if (ev.type === "chunk") {
+          queue.push({ delta: ev.delta, done: ev.done });
+        } else if (ev.type === "done") {
+          finished = true;
+        } else {
+          failure = new AIErrorException(ev.error.kind, ev.error.message);
+          finished = true;
+        }
+        wake();
+      });
+      return {
+        async *[Symbol.asyncIterator]() {
+          try {
+            while (true) {
+              if (queue.length > 0) {
+                yield queue.shift()!;
+                continue;
+              }
+              if (failure) throw failure;
+              if (finished) return;
+              await new Promise<void>((res) => (resolveNext = res));
+            }
+          } finally {
+            unsubscribe();
+          }
+        },
+      };
     },
   },
 

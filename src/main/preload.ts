@@ -25,6 +25,21 @@ contextBridge.exposeInMainWorld("aimBridge", {
   links: {
     fetchMeta: (url: string) => ipcRenderer.invoke("links:fetchMeta", url),
   },
+  // Phase 9: AI. The renderer never sees the API key — only these channels.
+  ai: {
+    hasKey: () => ipcRenderer.invoke("ai:hasKey"),
+    setKey: (key: string) => ipcRenderer.invoke("ai:setKey", key),
+    complete: (req: unknown) => ipcRenderer.invoke("ai:complete", req),
+    // Callback-based stream. Returns an unsubscribe function. The renderer's
+    // platform adapter wraps this into an AsyncIterable.
+    stream: (id: string, req: unknown, onEvent: (ev: unknown) => void) => {
+      const channel = `ai:stream:event:${id}`;
+      const listener = (_e: unknown, ev: unknown) => onEvent(ev);
+      ipcRenderer.on(channel, listener);
+      ipcRenderer.send("ai:stream", { id, req });
+      return () => ipcRenderer.removeListener(channel, listener);
+    },
+  },
   // Phase 5 PR 3/3: unsaved-changes guard on window close.
   window: {
     // Renderer → main: report the live dirty flag.

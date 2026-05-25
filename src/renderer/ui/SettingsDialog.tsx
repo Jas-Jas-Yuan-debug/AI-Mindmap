@@ -2,11 +2,12 @@
 // settings store (localStorage), so they survive a reload — plan §6 Phase 8
 // "Settings persist". AI provider is a disabled placeholder until Phase 9.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePanels } from "../store/panels.js";
 import { useSettings, type ThemeMode } from "../store/settings.js";
 import type { PresetColor } from "../../shared/aimap.js";
 import { PRESET_COLOR_MAP } from "../canvas/nodes/TextNode.js";
+import { aiHasKey, aiSetKey } from "../ai/aiClient.js";
 import "./Panels.css";
 
 const PRESETS: PresetColor[] = ["1", "2", "3", "4", "5", "6"];
@@ -24,12 +25,27 @@ export function SettingsDialog() {
   const defaultColor = useSettings((s) => s.defaultColor);
   const setDefaultColor = useSettings((s) => s.setDefaultColor);
 
+  // Phase 9: API key status + entry. Key lives only in the main process.
+  const [keySet, setKeySet] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const isWeb = typeof window !== "undefined" && window.platform?.kind === "web";
+
+  useEffect(() => {
+    if (open) void aiHasKey().then(setKeySet);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
+
+  const saveKey = async () => {
+    await aiSetKey(keyInput);
+    setKeyInput("");
+    setKeySet(await aiHasKey());
+  };
 
   if (!open) return null;
 
@@ -98,10 +114,35 @@ export function SettingsDialog() {
 
         <label className="aim-settings__row">
           <span>AI provider</span>
-          <select value="anthropic" disabled title="Configure in a later release">
-            <option value="anthropic">Anthropic (set up an API key — Phase 9)</option>
+          <select value="anthropic" disabled>
+            <option value="anthropic">Anthropic (Claude)</option>
           </select>
         </label>
+
+        <div className="aim-settings__row">
+          <span>Anthropic API key</span>
+          {isWeb ? (
+            <span className="aim-cheatsheet__desc">Not available in the web build</span>
+          ) : (
+            <span style={{ display: "flex", gap: "0.375rem", alignItems: "center" }}>
+              <input
+                type="password"
+                placeholder={keySet ? "•••• (set)" : "sk-ant-…"}
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                style={{ minWidth: "11rem" }}
+              />
+              <button
+                type="button"
+                className="aim-modal__btn"
+                onClick={() => void saveKey()}
+                disabled={!keyInput.trim() && !keySet}
+              >
+                {keyInput.trim() ? "Save" : keySet ? "Clear" : "Save"}
+              </button>
+            </span>
+          )}
+        </div>
 
         <div className="aim-modal__actions">
           <button type="button" className="aim-modal__btn aim-modal__btn--primary" onClick={close}>
