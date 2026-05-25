@@ -6,6 +6,7 @@ import { webPlatform } from "../platform/web.js";
 import type { Platform } from "../shared/platform.js";
 import { installDevHelpers } from "./dev/aimPushCards.js";
 import { installEdgeDevHelpers } from "./dev/aimPushEdges.js";
+import { installGroupDevHelpers } from "./dev/aimAddGroup.js";
 import { installDocStatusSubscriptions } from "./store/docStatus.js";
 import "./ui/theme.css";
 
@@ -32,6 +33,8 @@ window.platform = platform;
 // Tree-shaken in prod builds.
 installDevHelpers();
 installEdgeDevHelpers();
+// Phase 6: `window.__aimAddGroup(x,y,w,h,label?)` for manual group testing.
+installGroupDevHelpers();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root not found");
