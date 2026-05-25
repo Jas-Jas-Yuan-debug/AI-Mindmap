@@ -68,3 +68,57 @@
 .aim-mainmenu__label {
   flex: 1;
 }
+
+.aim-mainmenu__label--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-aligned keyboard-shortcut hint / submenu chevron. */
+.aim-mainmenu__shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: var(--aim-gap-sm);
+  font-size: 0.6875rem;
+  color: var(--aim-color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Disabled menu items (e.g. Recent Files when the list is empty). */
+.aim-mainmenu__item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.aim-mainmenu__item:disabled:hover {
+  background: transparent;
+}
+
+/* Thin separator between the File and View sections. */
+.aim-mainmenu__divider {
+  height: 1px;
+  margin: var(--aim-gap-sm) calc(var(--aim-gap) * 0.5);
+  background: var(--aim-color-border);
+  opacity: 0.3;
+}
+
+/* Recent Files submenu: the parent row is the positioning context; the panel
+   flies out to the right of the dropdown. */
+.aim-mainmenu__submenu {
+  position: relative;
+}
+
+.aim-mainmenu__submenu-panel {
+  position: absolute;
+  top: 0;
+  left: calc(100% + var(--aim-gap-sm));
+  min-width: 14rem;
+  max-width: 22rem;
+  padding: var(--aim-gap-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 2;
+}
