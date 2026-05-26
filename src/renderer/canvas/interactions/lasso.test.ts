@@ -127,6 +127,44 @@ describe("nodesInLasso", () => {
   });
 });
 
+describe("marquee / box-select tool hit-test", () => {
+  // The explicit marquee ("框选") tool reuses this exact hit-test: dragging a
+  // rectangle on empty canvas selects every node whose AABB the rectangle
+  // touches. These cases pin the box-select semantics the tool relies on.
+  const targets: LassoTarget[] = [
+    { id: "a", x: 0, y: 0, width: 100, height: 60 },
+    { id: "b", x: 300, y: 300, width: 100, height: 60 },
+    { id: "c", x: 120, y: 20, width: 80, height: 80 },
+  ];
+
+  test("a partial overlap still selects the node (touch-to-select)", () => {
+    // Marquee clips only the right edge of `a` — Excalidraw selects on any
+    // overlap, not full containment.
+    const marquee = normalizeLasso({ x1: 80, y1: 10, x2: 140, y2: 50 });
+    expect(nodesInLasso(targets, marquee)).toEqual(["a", "c"]);
+  });
+
+  test("a marquee dragged bottom-right → top-left normalizes and selects", () => {
+    // The tool lets the user drag in any direction; the reverse drag must
+    // produce the same selection as the forward drag over the same area.
+    const forward = nodesInLasso(
+      targets,
+      normalizeLasso({ x1: -10, y1: -10, x2: 210, y2: 110 }),
+    );
+    const reverse = nodesInLasso(
+      targets,
+      normalizeLasso({ x1: 210, y1: 110, x2: -10, y2: -10 }),
+    );
+    expect(reverse).toEqual(forward);
+    expect(forward).toEqual(["a", "c"]);
+  });
+
+  test("a marquee around the far node selects only it", () => {
+    const marquee = normalizeLasso({ x1: 280, y1: 280, x2: 420, y2: 380 });
+    expect(nodesInLasso(targets, marquee)).toEqual(["b"]);
+  });
+});
+
 describe("zoom-independence (hit-test in canvas coords)", () => {
   // The hook converts screen → canvas before hit-testing, so zoom never
   // reaches lasso.ts. Simulate that here: a marquee drawn around a node at

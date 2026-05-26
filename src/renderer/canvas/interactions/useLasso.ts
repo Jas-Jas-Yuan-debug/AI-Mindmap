@@ -33,6 +33,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useNodes } from "../../store/nodes.js";
 import { useSelection } from "../../store/selection.js";
 import { useViewport } from "../../store/viewport.js";
+import { useTool } from "../../store/tool.js";
 import { screenToCanvas } from "../layout.js";
 import { normalizeLasso, nodesInLasso, type Rect } from "./lasso.js";
 
@@ -138,6 +139,14 @@ export function useLasso(): LassoHandlers {
       }
       return null; // hide the rectangle
     });
+    // One-shot for the explicit marquee/box-select tool: once a marquee
+    // commits, drop back to the select tool so the user can immediately drag
+    // / edit the freshly-selected nodes (matches Excalidraw, and mirrors the
+    // text/group placement tools' one-shot revert). The default select tool
+    // is unaffected — it stays select-mode for repeated marquees.
+    if (useTool.getState().activeTool === "marquee") {
+      useTool.getState().setTool("select");
+    }
   }, []);
 
   return { rect, onMouseDown, onMouseMove, onMouseUp };

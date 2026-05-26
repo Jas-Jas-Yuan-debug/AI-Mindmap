@@ -278,6 +278,21 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         );
     };
 
+  // Stop a resize-handle mousedown/touchstart from bubbling to the parent
+  // Group. Without this, a handle press also triggers the Group's `draggable`
+  // (the body drag), so grabbing a handle started a group MOVE instead of a
+  // resize — the "can't make the box bigger" bug (框子无法变大). TextNode does
+  // not need this because it relies on Konva's innermost-draggable rule, but
+  // the group's body-drag also moves the WHOLE subtree on dragStart, so the
+  // move clearly wins the race there; cancelling the bubble keeps the gesture
+  // owned by the handle's own draggable. Applied via onMouseDown/onTouchStart
+  // on each handle below.
+  const stopHandleBubble = (
+    e: KonvaEventObject<MouseEvent> | KonvaEventObject<TouchEvent>,
+  ) => {
+    e.cancelBubble = true;
+  };
+
   const onResizeEnd = () => {
     // Detach direct children that the resize pushed (mostly) outside the new
     // bounds. Read live geometry after the resize settled. Wrapped in a
@@ -445,11 +460,20 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
                 strokeWidth={HANDLE_STROKE_WIDTH}
                 strokeScaleEnabled={false}
                 draggable
+                // Stop the press from bubbling to the parent Group's body
+                // drag. Without this the group MOVED instead of resizing
+                // (框子无法变大) because the body's onDragStart snapshots the
+                // subtree and wins the gesture. cancelBubble keeps the drag
+                // owned by THIS handle so computeResize runs.
+                onMouseDown={stopHandleBubble}
+                onTouchStart={
+                  stopHandleBubble as unknown as (
+                    e: KonvaEventObject<TouchEvent>,
+                  ) => void
+                }
                 // Capture once at resize start = one undo step for the whole
                 // resize (matching TextNode). The child-detach on resize end
                 // folds into the same step (setParent does not re-capture).
-                // Konva makes the innermost draggable (this Rect) own the drag,
-                // so the group's own draggable doesn't fire — same as TextNode.
                 onDragStart={() => useHistory.getState().capture()}
                 onDragMove={onHandleDragMove(h)}
                 onDragEnd={onResizeEnd}

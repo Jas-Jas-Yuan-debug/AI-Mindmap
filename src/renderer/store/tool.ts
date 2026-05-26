@@ -5,7 +5,12 @@
 
 import { create } from "zustand";
 
-export type Tool = "select" | "text" | "group" | "edge" | "image" | "link";
+// "marquee" arms an explicit rubber-band rectangular selection ("框选"). It
+// reuses the same lasso drag that the plain select tool offers on empty
+// canvas, but as a first-class tool so the toolbar's dotted-square reads as
+// "box-select" (which is what users expect) instead of secretly creating a
+// group. Group CREATION lives on its own "group" tool with a distinct icon.
+export type Tool = "select" | "marquee" | "text" | "group" | "edge" | "image" | "link";
 
 export interface ToolState {
   activeTool: Tool;
