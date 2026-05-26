@@ -8,10 +8,14 @@ import { Group, Rect, Text, Image as KonvaImage } from "react-konva";
 import type { LinkNode } from "../../store/nodes.js";
 import { urlDisplayName } from "../../import/importClassify.js";
 import { useNodeDrag } from "./useNodeDrag.js";
+// NOTE(A): colors only — theme-aware fill/stroke/text. Sibling D owns the
+// onDblClick / open-URL behavior; left untouched.
+import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "./nodeStyle.js";
 
-const BORDER_RADIUS = 10;
-const BORDER_COLOR = "#cbd5e1";
 const SELECTED_BORDER_COLOR = "#6965db";
+// URL line keeps the brand link color across themes (reads as a hyperlink).
+const URL_LINK_COLOR = "#6965db";
 
 function useFavicon(src: string | undefined): HTMLImageElement | null {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
@@ -41,6 +45,8 @@ export interface LinkNodeBoxProps {
 export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
   const drag = useNodeDrag(node.id);
   const favicon = useFavicon(node.favicon);
+  const theme = useResolvedTheme();
+  const style = resolveNodeStyle(node, theme, "link");
   const title = node.title || urlDisplayName(node.url);
 
   const pointerHandlers = onSelect
@@ -66,9 +72,11 @@ export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
       name="link-node"
       id={node.id}
       draggable
+      opacity={style.opacity}
       onDragStart={drag.onDragStart}
       onDragMove={drag.onDragMove}
       onDragEnd={drag.onDragEnd}
+      // NOTE(A): colors only — open-on-dblclick is sibling D's; left as-is.
       onDblClick={open}
       onDblTap={open}
       {...pointerHandlers}
@@ -76,10 +84,11 @@ export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
       <Rect
         width={node.width}
         height={node.height}
-        cornerRadius={BORDER_RADIUS}
-        fill="#ffffff"
-        stroke={selected ? SELECTED_BORDER_COLOR : BORDER_COLOR}
-        strokeWidth={selected ? 2 : 1}
+        cornerRadius={style.cornerRadius}
+        fill={style.fill}
+        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
+        strokeWidth={selected ? 2 : style.strokeWidth}
+        {...(!selected && style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
       />
       {favicon ? (
@@ -93,7 +102,7 @@ export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
         fontSize={14}
         fontStyle="bold"
         fontFamily="system-ui, sans-serif"
-        fill="#1b1b1f"
+        fill={style.fontColor}
         ellipsis
         wrap="none"
         listening={false}
@@ -105,7 +114,7 @@ export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
         text={node.url}
         fontSize={12}
         fontFamily="system-ui, sans-serif"
-        fill="#6965db"
+        fill={URL_LINK_COLOR}
         ellipsis
         wrap="none"
         listening={false}
