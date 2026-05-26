@@ -54,6 +54,23 @@
   color: var(--aim-color-text-muted);
 }
 
+/* Title row: title on the left, live value on the right (Opacity section). */
+.aim-props__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Live numeric readout (e.g. "72%") — muted, tabular, small. */
+.aim-props__value {
+  font-size: 0.7rem;
+  color: var(--aim-color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
 .aim-props__swatches {
   display: flex;
   flex-wrap: wrap;
