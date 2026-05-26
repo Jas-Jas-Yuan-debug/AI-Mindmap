@@ -27,10 +27,10 @@ import { useNodeDrag } from "./useNodeDrag.js";
 // NOTE(A): colors only — theme-aware fill/stroke/text. Sibling D owns the
 // onDblClick / open-URL behavior; left untouched.
 import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { useViewport } from "../../store/viewport.js";
 import { resolveNodeStyle } from "./nodeStyle.js";
 import { openLinkUrl } from "./openLink.js";
 
-const SELECTED_BORDER_COLOR = "#6965db";
 // URL line keeps the brand link color across themes (reads as a hyperlink).
 const URL_LINK_COLOR = "#6965db";
 
@@ -67,6 +67,7 @@ export interface LinkNodeBoxProps {
 export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
   const drag = useNodeDrag(node.id);
   const favicon = useFavicon(node.favicon);
+  const zoom = useViewport((s) => s.zoom);
   const theme = useResolvedTheme();
   const style = resolveNodeStyle(node, theme, "link");
   const title = node.title || urlDisplayName(node.url);
@@ -126,11 +127,28 @@ export function LinkNodeBox({ node, selected, onSelect }: LinkNodeBoxProps) {
         height={node.height}
         cornerRadius={style.cornerRadius}
         fill={style.fill}
-        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
-        strokeWidth={selected ? 2 : style.strokeWidth}
-        {...(!selected && style.dash ? { dash: style.dash } : {})}
+        stroke={style.stroke}
+        strokeWidth={style.strokeWidth}
+        {...(style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
       />
+      {selected ? (() => {
+        const ringOffset = 4 / zoom;
+        return (
+          <Rect
+            x={-ringOffset}
+            y={-ringOffset}
+            width={node.width + ringOffset * 2}
+            height={node.height + ringOffset * 2}
+            cornerRadius={style.cornerRadius + ringOffset}
+            stroke="#6965db"
+            strokeWidth={2}
+            strokeScaleEnabled={false}
+            fillEnabled={false}
+            listening={false}
+          />
+        );
+      })() : null}
       {favicon ? (
         <KonvaImage image={favicon} x={14} y={16} width={16} height={16} listening={false} />
       ) : null}

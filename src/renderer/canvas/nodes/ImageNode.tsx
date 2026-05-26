@@ -27,7 +27,6 @@ import { useNodeDrag } from "./useNodeDrag.js";
 import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
 import { resolveNodeStyle } from "./nodeStyle.js";
 
-const SELECTED_BORDER_COLOR = "#6965db";
 const HANDLE_SCREEN_SIZE = 10;
 
 /** Load `src` into an HTMLImageElement once; re-load when src changes. */
@@ -121,18 +120,29 @@ export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
         width={node.width}
         height={node.height}
         cornerRadius={6}
-        stroke={
-          selected
-            ? SELECTED_BORDER_COLOR
-            : hasCustomStroke
-              ? style.stroke
-              : "transparent"
-        }
-        strokeWidth={selected ? 2 : hasCustomStroke ? style.strokeWidth : 0}
-        {...(!selected && hasCustomStroke && style.dash ? { dash: style.dash } : {})}
+        stroke={hasCustomStroke ? style.stroke : "transparent"}
+        strokeWidth={hasCustomStroke ? style.strokeWidth : 0}
+        {...(hasCustomStroke && style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
         listening={false}
       />
+      {selected ? (() => {
+        const ringOffset = 4 / zoom;
+        return (
+          <Rect
+            x={-ringOffset}
+            y={-ringOffset}
+            width={node.width + ringOffset * 2}
+            height={node.height + ringOffset * 2}
+            cornerRadius={6 + ringOffset}
+            stroke="#6965db"
+            strokeWidth={2}
+            strokeScaleEnabled={false}
+            fillEnabled={false}
+            listening={false}
+          />
+        );
+      })() : null}
       {selected
         ? handles.map((h) => {
             const pos = handlePosition(h, node.width, node.height);

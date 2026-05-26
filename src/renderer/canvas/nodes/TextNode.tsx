@@ -251,11 +251,11 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
         height={node.height}
         cornerRadius={style.cornerRadius}
         fill={style.fill}
-        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
-        strokeWidth={selected ? SELECTED_BORDER_WIDTH : style.strokeWidth}
-        // Per-node border style (solid / dashed / dotted). Selected ring stays
-        // solid purple. undefined dash = solid line.
-        {...(!selected && style.dash ? { dash: style.dash } : {})}
+        stroke={style.stroke}
+        strokeWidth={style.strokeWidth}
+        // Per-node border style (solid / dashed / dotted). Always render the
+        // real resolved style — selection is shown via the separate ring below.
+        {...(style.dash ? { dash: style.dash } : {})}
         // Node opacity (0..1). Applies to fill + stroke of the card body.
         opacity={style.opacity}
         // Keep the border visually constant under zoom — a 1px line at
@@ -270,7 +270,29 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
         shadowBlur={6}
         shadowOpacity={0.25}
       />
-      <AnchorDots node={node} visible={hovered || selected} />
+      {/* Selection ring: drawn OUTSIDE the body so the body's real stroke is
+          always visible. Screen-constant 4px gap between body and ring. */}
+      {selected && (() => {
+        const ringOffset = 4 / zoom;
+        return (
+          <Rect
+            x={-ringOffset}
+            y={-ringOffset}
+            width={node.width + ringOffset * 2}
+            height={node.height + ringOffset * 2}
+            cornerRadius={style.cornerRadius + ringOffset}
+            stroke={SELECTED_BORDER_COLOR}
+            strokeWidth={SELECTED_BORDER_WIDTH}
+            strokeScaleEnabled={false}
+            fillEnabled={false}
+            listening={false}
+          />
+        );
+      })()}
+      {/* Anchor dots: only shown on hover when NOT selected so they don't
+          cover the midpoint resize handles. Edge-tool reveal in AnchorDots
+          still works (it bypasses the visible prop). */}
+      <AnchorDots node={node} visible={hovered && !selected} />
       {selected
         ? handles.map((h) => {
             const pos = handlePosition(h, node.width, node.height);

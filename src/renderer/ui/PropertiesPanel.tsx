@@ -274,13 +274,16 @@ export function PropertiesPanel() {
 
         {/* 透明度 — Opacity --------------------------------------------- */}
         <section className="aim-props__section">
-          <h3 className="aim-props__title">透明度</h3>
+          <div className="aim-props__title-row">
+            <h3 className="aim-props__title">透明度</h3>
+            <span className="aim-props__value">{opacityActive}%</span>
+          </div>
           <input
             className="aim-props__slider"
             type="range"
             min={0}
             max={100}
-            step={10}
+            step={1}
             value={opacityActive}
             aria-label="Opacity"
             onChange={(e) => patchAll({ opacity: Number(e.target.value) })}

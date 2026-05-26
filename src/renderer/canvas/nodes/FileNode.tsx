@@ -8,8 +8,8 @@ import type { FileNode } from "../../store/nodes.js";
 import { useNodeDrag } from "./useNodeDrag.js";
 import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
 import { resolveNodeStyle } from "./nodeStyle.js";
+import { useViewport } from "../../store/viewport.js";
 
-const SELECTED_BORDER_COLOR = "#6965db";
 // A simple document glyph (lucide-ish "file" outline), drawn at 20x20 and
 // translated into the card's left padding.
 const FILE_GLYPH =
@@ -23,6 +23,7 @@ export interface FileNodeBoxProps {
 
 export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
   const drag = useNodeDrag(node.id);
+  const zoom = useViewport((s) => s.zoom);
   const theme = useResolvedTheme();
   const style = resolveNodeStyle(node, theme, "file");
   const label = node.displayName || node.file.split("/").pop() || node.file;
@@ -62,11 +63,28 @@ export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
         height={node.height}
         cornerRadius={style.cornerRadius}
         fill={style.fill}
-        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
-        strokeWidth={selected ? 2 : style.strokeWidth}
-        {...(!selected && style.dash ? { dash: style.dash } : {})}
+        stroke={style.stroke}
+        strokeWidth={style.strokeWidth}
+        {...(style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
       />
+      {selected ? (() => {
+        const ringOffset = 4 / zoom;
+        return (
+          <Rect
+            x={-ringOffset}
+            y={-ringOffset}
+            width={node.width + ringOffset * 2}
+            height={node.height + ringOffset * 2}
+            cornerRadius={style.cornerRadius + ringOffset}
+            stroke="#6965db"
+            strokeWidth={2}
+            strokeScaleEnabled={false}
+            fillEnabled={false}
+            listening={false}
+          />
+        );
+      })() : null}
       <Group x={14} y={node.height / 2 - 10}>
         <Path data={FILE_GLYPH} stroke={style.fontColor} strokeWidth={1.5} />
       </Group>

@@ -67,8 +67,6 @@ import { startHandleResize } from "./useResizeHandle.js";
 const BORDER_RADIUS = 14;
 const BORDER_WIDTH = 2;
 const BORDER_DASH = [8, 6];
-const SELECTED_BORDER_COLOR = "#6965db"; // Excalidraw purple (primary)
-const SELECTED_BORDER_WIDTH = 3;
 
 // NOTE(A): theme-aware group palette. Light keeps the original slate look; dark
 // uses a lighter slate so the dashed container + header read against the dark
@@ -280,6 +278,12 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
     }
   };
 
+  // Corner radius: use the group's roomy default (14) when the user hasn't
+  // explicitly set roundness; otherwise honour the resolver's value (sharp→2,
+  // round→10). Both the body Rect and the header strip share this so they
+  // always match.
+  const radius = node.roundness ? style.cornerRadius : BORDER_RADIUS;
+
   const labelBase = node.label ?? "Group";
   // Collapsed groups append the hidden-descendant count, e.g. "Group (5)".
   const labelText = node.collapsed
@@ -326,33 +330,56 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
       onDragEnd={onDragEnd}
       {...pointerHandlers}
     >
-      {/* Body / container rect */}
+      {/* Body / container rect — always paints the user's real style so the
+          properties panel shows accurate live feedback even while selected.
+          Selection is shown by a separate ring rendered on top (see below). */}
       <Rect
         x={0}
         y={0}
         width={node.width}
         height={node.height}
-        cornerRadius={BORDER_RADIUS}
+        cornerRadius={radius}
         fill={bodyFill}
-        stroke={selected ? SELECTED_BORDER_COLOR : borderColor}
-        strokeWidth={selected ? SELECTED_BORDER_WIDTH : BORDER_WIDTH}
-        // Dashed when unselected (the container "outline" look); a solid
-        // purple ring when selected, matching the text-card focus style.
-        // A user-chosen strokeStyle overrides the default dash.
-        {...(!selected && borderDash ? { dash: borderDash } : {})}
+        stroke={borderColor}
+        strokeWidth={node.strokeWidth ? style.strokeWidth : BORDER_WIDTH}
+        // Honor an explicit user strokeStyle (solid → no dash); otherwise keep
+        // the group's signature dashed outline.
+        {...(borderDash ? { dash: borderDash } : {})}
         strokeScaleEnabled={false}
       />
       {/* Header strip — clipped to the top rounded corners via a second Rect
-          with only the top corners rounded. */}
+          with only the top corners rounded. Matches the body's radius so a
+          round/sharp group's header never looks mismatched. */}
       <Rect
         x={0}
         y={0}
         width={node.width}
         height={GROUP_HEADER_HEIGHT}
-        cornerRadius={[BORDER_RADIUS, BORDER_RADIUS, 0, 0]}
+        cornerRadius={[radius, radius, 0, 0]}
         fill={palette.header}
         listening={false}
       />
+      {/* Selection ring — rendered on top of the body so the user's real
+          border style always shows through. Offset outside the body by
+          ringOffset (screen-pixel constant ÷ zoom so it never scales up).
+          `listening={false}` keeps it non-interactive. */}
+      {selected && (() => {
+        const ringOffset = 4 / zoom;
+        return (
+          <Rect
+            x={-ringOffset}
+            y={-ringOffset}
+            width={node.width + ringOffset * 2}
+            height={node.height + ringOffset * 2}
+            cornerRadius={radius + ringOffset}
+            stroke="#6965db"
+            strokeWidth={2}
+            strokeScaleEnabled={false}
+            fillEnabled={false}
+            listening={false}
+          />
+        );
+      })()}
       {/* Disclosure chevron — points down when expanded, right when
           collapsed. A larger transparent Rect behind it is the real hit
           target so it stays easy to click. Toggling captures + flips
