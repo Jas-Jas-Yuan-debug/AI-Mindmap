@@ -175,6 +175,61 @@ describe("resizeNode", () => {
   });
 });
 
+describe("reorderLayer (z-order)", () => {
+  const seed = () => {
+    useNodes.getState().addNode(makeTextNode({ id: "a" }));
+    useNodes.getState().addNode(makeTextNode({ id: "b" }));
+    useNodes.getState().addNode(makeTextNode({ id: "c" }));
+  };
+  const order = () => useNodes.getState().nodes.map((n) => n.id);
+
+  test("front: moves the selected node to the end of the array", () => {
+    seed();
+    useNodes.getState().reorderLayer("front", ["a"]);
+    expect(order()).toEqual(["b", "c", "a"]);
+  });
+
+  test("back: moves the selected node to the start of the array", () => {
+    seed();
+    useNodes.getState().reorderLayer("back", ["c"]);
+    expect(order()).toEqual(["c", "a", "b"]);
+  });
+
+  test("forward: moves the selected node one slot toward the front", () => {
+    seed();
+    useNodes.getState().reorderLayer("forward", ["a"]);
+    expect(order()).toEqual(["b", "a", "c"]);
+  });
+
+  test("backward: moves the selected node one slot toward the back", () => {
+    seed();
+    useNodes.getState().reorderLayer("backward", ["c"]);
+    expect(order()).toEqual(["a", "c", "b"]);
+  });
+
+  test("preserves relative order of a multi-node selection", () => {
+    useNodes.getState().addNode(makeTextNode({ id: "a" }));
+    useNodes.getState().addNode(makeTextNode({ id: "b" }));
+    useNodes.getState().addNode(makeTextNode({ id: "c" }));
+    useNodes.getState().addNode(makeTextNode({ id: "d" }));
+    useNodes.getState().reorderLayer("front", ["a", "c"]);
+    expect(order()).toEqual(["b", "d", "a", "c"]);
+  });
+
+  test("empty selection is a no-op", () => {
+    seed();
+    useNodes.getState().reorderLayer("front", []);
+    expect(order()).toEqual(["a", "b", "c"]);
+  });
+
+  test("produces a new array reference (so React re-renders)", () => {
+    seed();
+    const before = useNodes.getState().nodes;
+    useNodes.getState().reorderLayer("front", ["a"]);
+    expect(useNodes.getState().nodes).not.toBe(before);
+  });
+});
+
 describe("makeNodeId", () => {
   test("returns a non-empty string", () => {
     const id = makeNodeId();

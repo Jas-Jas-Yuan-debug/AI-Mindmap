@@ -10,6 +10,7 @@ import { CheatSheet } from "./ui/CheatSheet.js";
 import { SettingsDialog } from "./ui/SettingsDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 import { SearchBar } from "./ui/SearchBar.js";
+import { PropertiesPanel } from "./ui/PropertiesPanel.js";
 import { ChatSidebar } from "./ui/ChatSidebar.js";
 import { EmptyState } from "./ui/EmptyState.js";
 import { useAutosave } from "./persistence/useAutosave.js";
@@ -72,6 +73,10 @@ export default function App() {
         <GroupOverlayLayer />
         <EdgeLabelOverlayLayer />
         <Chrome />
+        {/* Node-styling: Excalidraw-style properties panel, fixed on the LEFT
+            edge below the main menu. Renders null when nothing is selected,
+            so it never blocks empty-canvas clicks. */}
+        <PropertiesPanel />
         {/* Phase 8: search bar (mod+F) + cheat sheet (?) + settings/about. */}
         <SearchBar />
         <CheatSheet />
