@@ -30,8 +30,10 @@
 import { useMemo, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Rect } from "react-konva";
-import type { Color, PresetColor, TextNode } from "../../store/nodes.js";
+import type { TextNode } from "../../store/nodes.js";
 import { useNodes } from "../../store/nodes.js";
+import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "./nodeStyle.js";
 import { useSelection } from "../../store/selection.js";
 import { useHistory } from "../../store/history.js";
 import { useViewport } from "../../store/viewport.js";
@@ -45,51 +47,20 @@ import {
 import { AnchorDots } from "./AnchorDots.js";
 import { reparentOnDrop } from "../interactions/dropReparent.js";
 
-/**
- * Preset color id ("1".."6", per plan §5) → concrete hex.
- *
- * Hues chosen to align with the Mantine / Excalidraw color tier the rest
- * of the app uses; preset "6" is the Excalidraw purple `#6965db` we picked
- * as our primary brand color (plan §5b design tokens). Sibling C's color
- * picker should render swatches in this order.
- *
- * Exported so the color picker (sibling C) can reuse the canonical hex
- * values rather than re-defining them.
- */
-export const PRESET_COLOR_MAP: Record<PresetColor, string> = {
-  "1": "#fa5252", // red
-  "2": "#fd7e14", // orange
-  "3": "#fab005", // yellow
-  "4": "#40c057", // green
-  "5": "#15aabf", // cyan
-  "6": "#6965db", // purple — our primary
-};
-
-/**
- * Resolve a `Color` (preset id or hex literal) to a concrete hex string.
- *
- * Falls back to white (`#ffffff`) when no color is set; Phase 8 will swap
- * the fallback for a themed default driven by `data-theme="dark"`.
- *
- * Exported for sibling C's color picker preview UI.
- */
-export function resolveColor(c: Color | undefined): string {
-  if (!c) return "#ffffff";
-  if (typeof c === "string" && c.startsWith("#")) return c;
-  return PRESET_COLOR_MAP[c as PresetColor] ?? "#ffffff";
-}
+// PRESET_COLOR_MAP + resolveColor now live in ./nodeStyle.ts (single source
+// of truth for the dark-mode fix). Re-exported here so the existing import
+// sites (sibling C's ColorPicker, SettingsDialog, GroupNode, Edge) keep
+// importing them from "./TextNode.js" unchanged.
+export { PRESET_COLOR_MAP, resolveColor } from "./nodeStyle.js";
 
 // --- Visual constants -------------------------------------------------
 //
-// Border radius matches Excalidraw's card vibe (plan §5b). The selection
-// ring uses the brand primary `#6965db` — keeping the hex literal here
-// (instead of var(--aim-color-primary)) because Konva renders to canvas
-// and can't read CSS custom properties. Phase 8 will plumb theme values
-// down via a small palette helper.
+// The selection ring uses the brand primary `#6965db` — kept as a hex literal
+// (not var(--aim-color-primary)) because Konva renders to canvas and can't
+// read CSS custom properties. Fill / border / corner radius / opacity now come
+// from `resolveNodeStyle(node, theme, "text")` so they're theme-aware (dark
+// mode no longer renders a glaring white card).
 
-const BORDER_RADIUS = 12;
-const BORDER_COLOR = "#cbd5e1"; // slate-300, subtle on white
-const BORDER_WIDTH = 1;
 const SELECTED_BORDER_COLOR = "#6965db"; // Excalidraw purple (primary)
 const SELECTED_BORDER_WIDTH = 2;
 
@@ -122,7 +93,10 @@ export interface TextNodeCardProps {
  * resize handles inside the same `<Group>` later without restructuring.
  */
 export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
-  const fill = resolveColor(node.color);
+  // Theme-aware style. resolveNodeStyle fills in dark/light defaults for any
+  // unset field, so an un-styled card reads correctly in both themes.
+  const theme = useResolvedTheme();
+  const style = resolveNodeStyle(node, theme, "text");
   // Subscribe to zoom so resize handles stay a constant screen size as the
   // user zooms. Konva's children re-render when the prop changes; reading
   // zoom via useViewport keeps the dependency tight.
@@ -309,10 +283,15 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
         y={0}
         width={node.width}
         height={node.height}
-        cornerRadius={BORDER_RADIUS}
-        fill={fill}
-        stroke={selected ? SELECTED_BORDER_COLOR : BORDER_COLOR}
-        strokeWidth={selected ? SELECTED_BORDER_WIDTH : BORDER_WIDTH}
+        cornerRadius={style.cornerRadius}
+        fill={style.fill}
+        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
+        strokeWidth={selected ? SELECTED_BORDER_WIDTH : style.strokeWidth}
+        // Per-node border style (solid / dashed / dotted). Selected ring stays
+        // solid purple. undefined dash = solid line.
+        {...(!selected && style.dash ? { dash: style.dash } : {})}
+        // Node opacity (0..1). Applies to fill + stroke of the card body.
+        opacity={style.opacity}
         // Keep the border visually constant under zoom — a 1px line at
         // zoom 4 should still look like 1px, matching the Origin marker
         // and the rest of the chrome.

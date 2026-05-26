@@ -37,6 +37,13 @@ export type Color = HexColor | PresetColor;
 
 export type NodeType = "text" | "file" | "link" | "image" | "group";
 
+/** Border line width tier. 1 thin · 2 medium · 4 bold (Excalidraw-style). */
+export type StrokeWidth = 1 | 2 | 4;
+/** Border line style. */
+export type StrokeStyle = "solid" | "dashed" | "dotted";
+/** Corner treatment: sharp (near-square) or round (Excalidraw-style). */
+export type Roundness = "sharp" | "round";
+
 export interface NodeBase {
   id: string; // required, unique within the file (uuid v4)
   type: NodeType;
@@ -44,8 +51,32 @@ export interface NodeBase {
   y: number; // integer pixels, +y down
   width: number;
   height: number;
+  /**
+   * Legacy / shorthand fill color. Retained for back-compat: when
+   * `backgroundColor` is unset, the fill falls back to `color`. New writers
+   * should prefer `backgroundColor`. See `resolveNodeStyle`.
+   */
   color?: Color;
   parentId?: string; // id of containing GroupNode, if any (our extension)
+
+  // --- Per-node style (optional; theme-aware defaults when unset) ----------
+  // Added with the dark-mode fix (Phase 8). All optional → existing files and
+  // tests parse unchanged. The renderer resolves these via `resolveNodeStyle`,
+  // which fills in theme-appropriate defaults for any field left undefined.
+  /** Card / container fill. Takes precedence over `color`. */
+  backgroundColor?: Color;
+  /** Border (stroke) color. */
+  strokeColor?: Color;
+  /** Text / glyph color. */
+  fontColor?: Color;
+  /** Border width tier (1 | 2 | 4). Default ~1.5 when unset. */
+  strokeWidth?: StrokeWidth;
+  /** Border line style. Default "solid" (groups default to dashed visually). */
+  strokeStyle?: StrokeStyle;
+  /** Node opacity, 0..100. Default 100 (fully opaque). */
+  opacity?: number;
+  /** Corner treatment. Default "round". */
+  roundness?: Roundness;
 }
 
 export interface TextNode extends NodeBase {
@@ -164,6 +195,13 @@ const ZHexColor = z.custom<HexColor>(
 const ZPresetColor = z.enum(["1", "2", "3", "4", "5", "6"]);
 const ZColor: z.ZodType<Color> = z.union([ZHexColor, ZPresetColor]);
 
+// Per-node style enums (mirror the StrokeWidth / StrokeStyle / Roundness types).
+// `z.literal` union models the numeric strokeWidth tier; the others are string
+// enums. All applied as `.optional()` on the node base so existing files parse.
+const ZStrokeWidth = z.union([z.literal(1), z.literal(2), z.literal(4)]);
+const ZStrokeStyle = z.enum(["solid", "dashed", "dotted"]);
+const ZRoundness = z.enum(["sharp", "round"]);
+
 const ZNodeBaseShape = {
   id: z.string(),
   x: z.number(),
@@ -172,6 +210,14 @@ const ZNodeBaseShape = {
   height: z.number(),
   color: ZColor.optional(),
   parentId: z.string().optional(),
+  // Per-node style (optional; theme-aware defaults applied at render time).
+  backgroundColor: ZColor.optional(),
+  strokeColor: ZColor.optional(),
+  fontColor: ZColor.optional(),
+  strokeWidth: ZStrokeWidth.optional(),
+  strokeStyle: ZStrokeStyle.optional(),
+  opacity: z.number().min(0).max(100).optional(),
+  roundness: ZRoundness.optional(),
 };
 
 const ZTextNode = z.object({

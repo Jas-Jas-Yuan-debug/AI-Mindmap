@@ -301,11 +301,24 @@ export interface NodeBase {
   y: number;             // integer pixels, +y down
   width: number;
   height: number;
-  color?: Color;
+  color?: Color;         // legacy/shorthand fill; backgroundColor wins (back-compat)
   parentId?: string;     // id of containing GroupNode, if any (our extension)
+  // Per-node style (all optional; theme-aware defaults applied at render time).
+  // Added by the dark-mode fix (Phase 8). Existing files without these still
+  // parse + render. The renderer resolves them via `resolveNodeStyle`.
+  backgroundColor?: Color;        // card / container fill (preferred over `color`)
+  strokeColor?: Color;            // border color
+  fontColor?: Color;              // text / glyph color
+  strokeWidth?: StrokeWidth;      // 1 | 2 | 4 (default ~1.5 when unset)
+  strokeStyle?: StrokeStyle;      // "solid" | "dashed" | "dotted"
+  opacity?: number;               // 0..100 (default 100)
+  roundness?: Roundness;          // "sharp" | "round" (default "round")
 }
 
 export type NodeType = "text" | "file" | "link" | "image" | "group";
+export type StrokeWidth = 1 | 2 | 4;
+export type StrokeStyle = "solid" | "dashed" | "dotted";
+export type Roundness   = "sharp" | "round";
 
 export interface TextNode extends NodeBase {
   type: "text";
@@ -366,6 +379,7 @@ export interface ChatThread {
 - **Z-order is array order.** `nodes[0]` renders bottom, `nodes[length-1]` renders top. Preserve order on save.
 - **Coordinates are integer pixels, +x right, +y down.** Same convention everywhere.
 - **Color values: write presets when possible.** If the user picked a swatch from our palette, write `"1"`–`"6"` so a future theme change re-themes existing files automatically. Hex only when the user picked a custom color.
+- **Per-node style is optional + theme-aware.** `backgroundColor` / `strokeColor` / `fontColor` / `strokeWidth` / `strokeStyle` / `opacity` / `roundness` are all optional on `NodeBase`. When unset, the renderer (`src/renderer/canvas/nodes/nodeStyle.ts` → `resolveNodeStyle`) substitutes theme-appropriate defaults read from the live `[data-theme]` attribute (Konva can't read CSS vars), so a node with no style renders correctly in both light and dark. `backgroundColor` takes precedence over the legacy `color`; when both are unset the fill falls back to the theme default. Write only the fields the user actually changed — keep files minimal.
 - **Edge defaults: `fromEnd: "none"`, `toEnd: "arrow"`.** An edge with neither end field is a one-way arrow.
 - **`FileNode.file` / `ImageNode.file` paths are relative** to the folder containing the `.aimap` file. Convert absolute paths on save. Images are copied into `<filename>.aimap.assets/` next to the document on import.
 - **Unknown fields are dropped on save.** No round-trip preservation — we have no external tool to round-trip with.
@@ -963,7 +977,7 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-24 (Phase 6 PR 3/3 — group label/color/collapse + save-load hierarchy + undo reparent; **Phase 6 🟢 4/4 done**)
+Last updated: 2026-05-26 (Phase 8 — dark-mode node-color fix + per-node style fields foundation: added optional `backgroundColor`/`strokeColor`/`fontColor`/`strokeWidth`/`strokeStyle`/`opacity`/`roundness` to `NodeBase`; all Konva renderers now resolve theme-aware colors via `resolveNodeStyle` + `useResolvedTheme` so dark mode no longer renders a glaring white card)
 
 History:
 - 2026-05-24: initial version

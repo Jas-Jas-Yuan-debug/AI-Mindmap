@@ -34,6 +34,16 @@
   line-height: 1.45;
   pointer-events: none;
   user-select: none;
+  /* Text color is driven by the node's resolved fontColor (inline style) so
+   * it's theme-aware AND honors a per-node fontColor. The placeholder variant
+   * below overrides it with the muted token. */
+}
+
+/* Empty-card prompt. Theme-aware muted color (not a hardcoded gray) so it
+ * reads in both light and dark. */
+.aim-node-overlay__placeholder {
+  color: var(--aim-color-text-muted);
+  font-style: italic;
 }
 
 /* Light typographic styling so cards look reasonable out of the box.

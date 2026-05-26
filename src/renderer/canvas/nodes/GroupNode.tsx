@@ -37,6 +37,10 @@ import { useNodes } from "../../store/nodes.js";
 import { useHistory } from "../../store/history.js";
 import { useViewport } from "../../store/viewport.js";
 import { resolveColor } from "./TextNode.js";
+// NOTE(A): colors only — theme-aware default fill/border/header/label. Resize
+// handles + drag/collapse/reparent are NOT touched (sibling C owns resize).
+import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "./nodeStyle.js";
 import { descendantsOf, childrenOf, setParent } from "../../store/reparent.js";
 import { reparentOnDrop } from "../interactions/dropReparent.js";
 import { isMostlyInside } from "../interactions/groupHitTest.js";
@@ -62,11 +66,29 @@ import {
 // plumb themed values through a palette helper.
 
 const BORDER_RADIUS = 14;
-const BORDER_COLOR = "#94a3b8"; // slate-400 — heavier than the text card's slate-300
 const BORDER_WIDTH = 2;
 const BORDER_DASH = [8, 6];
 const SELECTED_BORDER_COLOR = "#6965db"; // Excalidraw purple (primary)
 const SELECTED_BORDER_WIDTH = 3;
+
+// NOTE(A): theme-aware group palette. Light keeps the original slate look; dark
+// uses a lighter slate so the dashed container + header read against the dark
+// canvas instead of vanishing. Body/header are translucent so children on top
+// stay legible in both themes.
+const GROUP_THEME = {
+  light: {
+    border: "#94a3b8", // slate-400 — heavier than the text card's slate-300
+    body: "rgba(148, 163, 184, 0.10)", // slate-400 @ 10%
+    header: "rgba(148, 163, 184, 0.18)",
+    label: "#475569", // slate-600
+  },
+  dark: {
+    border: "#6b7280", // slate-500 — visible on the dark canvas
+    body: "rgba(148, 163, 184, 0.10)",
+    header: "rgba(148, 163, 184, 0.22)",
+    label: "#cbd5e1", // slate-300 — legible on dark
+  },
+} as const;
 
 /** Header strip height (canvas units) that holds the group label. */
 export const GROUP_HEADER_HEIGHT = 28;
@@ -77,11 +99,6 @@ export const GROUP_HEADER_HEIGHT = 28;
 export const GROUP_MIN_WIDTH = 320;
 export const GROUP_MIN_HEIGHT = 200;
 
-/** Faint default body fill so children stay legible on top. When the user
- *  picks a color (sibling C), we tint with it at low alpha instead. */
-const DEFAULT_BODY_FILL = "rgba(148, 163, 184, 0.10)"; // slate-400 @ 10%
-const HEADER_FILL = "rgba(148, 163, 184, 0.18)";
-const LABEL_COLOR = "#475569"; // slate-600
 const LABEL_FONT_SIZE = 13;
 
 // Resize-handle visuals — mirror TextNode's so a group's 8-handle resize
@@ -111,13 +128,26 @@ export interface GroupNodeBoxProps {
  * coordinates and z-order independent of the container.
  */
 export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
-  // A user-picked color tints the body at low alpha; otherwise the faint
-  // slate default. We resolve the hex then overlay our own alpha via Konva's
-  // separate fill + opacity isn't ideal (it'd dim the border too), so we keep
-  // the body fill as an rgba string built from the resolved hex when set.
-  const bodyFill = node.color
-    ? hexToRgba(resolveColor(node.color), 0.12)
-    : DEFAULT_BODY_FILL;
+  // NOTE(A): colors only. Theme-aware group palette + per-node style. The
+  // resolver gives us node opacity + (when set) a custom border color; the
+  // group's distinctive tinted-body / dashed-border / header look is preserved.
+  const theme = useResolvedTheme();
+  const palette = GROUP_THEME[theme];
+  const style = resolveNodeStyle(node, theme, "group");
+
+  // A user-picked fill color (`backgroundColor` or legacy `color`) tints the
+  // body at low alpha; otherwise the faint themed default. Body uses an rgba
+  // string (not Konva opacity) so the alpha applies to the fill only, not the
+  // border. `node.opacity` is applied to the whole Group below.
+  const fillColor = node.backgroundColor ?? node.color;
+  const bodyFill = fillColor
+    ? hexToRgba(resolveColor(fillColor), 0.12)
+    : palette.body;
+  // Border: explicit user stroke color when set, else the themed default.
+  const borderColor = node.strokeColor ? style.stroke : palette.border;
+  // Border dash: honor an explicit user strokeStyle exactly (solid -> no dash);
+  // otherwise keep the group's signature dashed outline.
+  const borderDash = node.strokeStyle ? style.dash : BORDER_DASH;
 
   // Drag bookkeeping: the group's origin at drag start plus a snapshot of
   // every DESCENDANT's start (x,y). We add the group's delta to each
@@ -314,6 +344,8 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
       name="group-node"
       id={node.id}
       draggable
+      // NOTE(A): node opacity applies to the whole container.
+      opacity={style.opacity}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
@@ -327,11 +359,12 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         height={node.height}
         cornerRadius={BORDER_RADIUS}
         fill={bodyFill}
-        stroke={selected ? SELECTED_BORDER_COLOR : BORDER_COLOR}
+        stroke={selected ? SELECTED_BORDER_COLOR : borderColor}
         strokeWidth={selected ? SELECTED_BORDER_WIDTH : BORDER_WIDTH}
         // Dashed when unselected (the container "outline" look); a solid
         // purple ring when selected, matching the text-card focus style.
-        {...(selected ? {} : { dash: BORDER_DASH })}
+        // A user-chosen strokeStyle overrides the default dash.
+        {...(!selected && borderDash ? { dash: borderDash } : {})}
         strokeScaleEnabled={false}
       />
       {/* Header strip — clipped to the top rounded corners via a second Rect
@@ -342,7 +375,7 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         width={node.width}
         height={GROUP_HEADER_HEIGHT}
         cornerRadius={[BORDER_RADIUS, BORDER_RADIUS, 0, 0]}
-        fill={HEADER_FILL}
+        fill={palette.header}
         listening={false}
       />
       {/* Disclosure chevron — points down when expanded, right when
@@ -374,7 +407,7 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
       <Line
         points={chevronPoints}
         closed
-        fill={LABEL_COLOR}
+        fill={palette.label}
         listening={false}
       />
       {/* Read-mode label. Editing happens via the HTML overlay in
@@ -387,7 +420,7 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
         text={labelText}
         fontSize={LABEL_FONT_SIZE}
         fontStyle="bold"
-        fill={LABEL_COLOR}
+        fill={node.fontColor ? style.fontColor : palette.label}
         ellipsis
         wrap="none"
         listening={false}

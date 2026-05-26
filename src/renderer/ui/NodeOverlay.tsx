@@ -33,6 +33,8 @@ import remarkGfm from "remark-gfm";
 import { useNodes, type TextNode } from "../store/nodes.js";
 import { useSelection } from "../store/selection.js";
 import { useHistory } from "../store/history.js";
+import { useResolvedTheme } from "../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "../canvas/nodes/nodeStyle.js";
 import "./NodeOverlay.css";
 
 export interface NodeOverlayProps {
@@ -70,6 +72,14 @@ export function NodeOverlay({
   // update happens once on commit.
   const [draft, setDraft] = useState(node.text);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Theme-aware text color. The markdown body + edit textarea use the node's
+  // resolved fontColor so text is legible against the (now theme-aware) card
+  // fill — this is the second half of the dark-mode fix (the Konva card draws
+  // the background; this DOM overlay draws the text on top). The empty-card
+  // placeholder uses the muted token so it reads in both themes.
+  const theme = useResolvedTheme();
+  const { fontColor } = resolveNodeStyle(node, theme, "text");
 
   // Sync draft and focus when edit mode begins.
   useEffect(() => {
@@ -128,6 +138,9 @@ export function NodeOverlay({
         <textarea
           ref={textareaRef}
           className="aim-node-overlay__edit"
+          // Theme-aware text color (overrides the CSS default token so a
+          // custom per-node fontColor shows while editing too).
+          style={{ color: fontColor }}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
@@ -140,11 +153,18 @@ export function NodeOverlay({
           onMouseDown={(e) => e.stopPropagation()}
           aria-label="Card text"
         />
+      ) : node.text ? (
+        <div
+          className="aim-node-overlay__read"
+          style={{ color: fontColor }}
+          aria-live="polite"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{node.text}</ReactMarkdown>
+        </div>
       ) : (
-        <div className="aim-node-overlay__read" aria-live="polite">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {node.text || ""}
-          </ReactMarkdown>
+        // Empty card: a muted, theme-aware placeholder (no markdown to render).
+        <div className="aim-node-overlay__read aim-node-overlay__placeholder">
+          Double-click to edit
         </div>
       )}
     </div>

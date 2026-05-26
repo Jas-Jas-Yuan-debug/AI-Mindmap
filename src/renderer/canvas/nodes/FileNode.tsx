@@ -6,9 +6,9 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Rect, Text, Path } from "react-konva";
 import type { FileNode } from "../../store/nodes.js";
 import { useNodeDrag } from "./useNodeDrag.js";
+import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "./nodeStyle.js";
 
-const BORDER_RADIUS = 10;
-const BORDER_COLOR = "#cbd5e1";
 const SELECTED_BORDER_COLOR = "#6965db";
 // A simple document glyph (lucide-ish "file" outline), drawn at 20x20 and
 // translated into the card's left padding.
@@ -23,6 +23,8 @@ export interface FileNodeBoxProps {
 
 export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
   const drag = useNodeDrag(node.id);
+  const theme = useResolvedTheme();
+  const style = resolveNodeStyle(node, theme, "file");
   const label = node.displayName || node.file.split("/").pop() || node.file;
 
   const pointerHandlers = onSelect
@@ -47,6 +49,7 @@ export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
       name="file-node"
       id={node.id}
       draggable
+      opacity={style.opacity}
       onDragStart={drag.onDragStart}
       onDragMove={drag.onDragMove}
       onDragEnd={drag.onDragEnd}
@@ -57,14 +60,15 @@ export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
       <Rect
         width={node.width}
         height={node.height}
-        cornerRadius={BORDER_RADIUS}
-        fill="#ffffff"
-        stroke={selected ? SELECTED_BORDER_COLOR : BORDER_COLOR}
-        strokeWidth={selected ? 2 : 1}
+        cornerRadius={style.cornerRadius}
+        fill={style.fill}
+        stroke={selected ? SELECTED_BORDER_COLOR : style.stroke}
+        strokeWidth={selected ? 2 : style.strokeWidth}
+        {...(!selected && style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
       />
       <Group x={14} y={node.height / 2 - 10}>
-        <Path data={FILE_GLYPH} stroke="#64748b" strokeWidth={1.5} />
+        <Path data={FILE_GLYPH} stroke={style.fontColor} strokeWidth={1.5} />
       </Group>
       <Text
         x={44}
@@ -74,7 +78,7 @@ export function FileNodeBox({ node, selected, onSelect }: FileNodeBoxProps) {
         text={label}
         fontSize={14}
         fontFamily="system-ui, sans-serif"
-        fill="#1b1b1f"
+        fill={style.fontColor}
         align="left"
         verticalAlign="middle"
         ellipsis

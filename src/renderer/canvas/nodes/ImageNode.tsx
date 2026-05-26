@@ -25,6 +25,8 @@ import {
   type ResizeHandle,
 } from "../interactions/resize.js";
 import { useNodeDrag } from "./useNodeDrag.js";
+import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
+import { resolveNodeStyle } from "./nodeStyle.js";
 
 const SELECTED_BORDER_COLOR = "#6965db";
 const HANDLE_SCREEN_SIZE = 10;
@@ -56,6 +58,12 @@ export interface ImageNodeBoxProps {
 export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
   const img = useHtmlImage(node.file);
   const zoom = useViewport((s) => s.zoom);
+  const theme = useResolvedTheme();
+  const style = resolveNodeStyle(node, theme, "image");
+  // Images stay borderless by default (clean look). A border only appears when
+  // the user explicitly sets a stroke color; we detect that via the raw field
+  // rather than the resolved value (which always carries a theme default).
+  const hasCustomStroke = node.strokeColor != null;
   const drag = useNodeDrag(node.id);
   const handles = useMemo(() => RESIZE_HANDLES, []);
   const handleCanvasSize = HANDLE_SCREEN_SIZE / zoom;
@@ -105,6 +113,7 @@ export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
       name="image-node"
       id={node.id}
       draggable
+      opacity={style.opacity}
       onDragStart={drag.onDragStart}
       onDragMove={drag.onDragMove}
       onDragEnd={drag.onDragEnd}
@@ -113,15 +122,28 @@ export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
       {img ? (
         <KonvaImage image={img} width={node.width} height={node.height} />
       ) : (
-        // Placeholder while the bitmap decodes.
-        <Rect width={node.width} height={node.height} fill="#e2e8f0" cornerRadius={6} />
+        // Placeholder while the bitmap decodes — themed surface, not a fixed
+        // light slate, so it doesn't flash white in dark mode.
+        <Rect
+          width={node.width}
+          height={node.height}
+          fill={style.fill}
+          cornerRadius={6}
+        />
       )}
       <Rect
         width={node.width}
         height={node.height}
         cornerRadius={6}
-        stroke={selected ? SELECTED_BORDER_COLOR : "transparent"}
-        strokeWidth={selected ? 2 : 0}
+        stroke={
+          selected
+            ? SELECTED_BORDER_COLOR
+            : hasCustomStroke
+              ? style.stroke
+              : "transparent"
+        }
+        strokeWidth={selected ? 2 : hasCustomStroke ? style.strokeWidth : 0}
+        {...(!selected && hasCustomStroke && style.dash ? { dash: style.dash } : {})}
         strokeScaleEnabled={false}
         listening={false}
       />
