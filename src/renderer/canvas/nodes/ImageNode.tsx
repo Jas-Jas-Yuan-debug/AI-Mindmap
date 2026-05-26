@@ -14,16 +14,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Image as KonvaImage, Rect } from "react-konva";
 import type { ImageNode } from "../../store/nodes.js";
-import { useNodes } from "../../store/nodes.js";
 import { useViewport } from "../../store/viewport.js";
-import { useHistory } from "../../store/history.js";
 import {
-  computeResize,
   handleCursor,
   handlePosition,
   RESIZE_HANDLES,
-  type ResizeHandle,
+  type ResizeNode,
+  type ResizeResult,
 } from "../interactions/resize.js";
+import { startHandleResize } from "./useResizeHandle.js";
 import { useNodeDrag } from "./useNodeDrag.js";
 import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
 import { resolveNodeStyle } from "./nodeStyle.js";
@@ -81,30 +80,17 @@ export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
       }
     : {};
 
-  const onHandleDragMove = (handle: ResizeHandle) =>
-    (e: KonvaEventObject<DragEvent>) => {
-      const stage = e.target.getStage();
-      const pointer = stage?.getPointerPosition();
-      if (!pointer) return;
-      const v = useViewport.getState();
-      const cursor = { x: (pointer.x - v.x) / v.zoom, y: (pointer.y - v.y) / v.zoom };
-      const live = useNodes.getState().nodes.find((n) => n.id === node.id);
-      if (!live) return;
-      const r = computeResize(handle, live, cursor);
-      // Lock aspect ratio: derive height from width.
+  // Pointer-driven resize (see useResizeHandle.ts) — handles are NOT Konva
+  // draggable (that caused the shake). Aspect-locked: derive height from width
+  // so the image keeps its intrinsic ratio.
+  const resizeOpts = {
+    transform: (r: ResizeResult, live: ResizeNode): ResizeResult => {
       const aspect = aspectRef.current ?? live.height / live.width;
       const width = Math.max(1, Math.round(r.width));
       const height = Math.max(1, Math.round(width * aspect));
-      useNodes
-        .getState()
-        .resizeNode(
-          node.id,
-          width,
-          height,
-          r.x !== undefined ? Math.round(r.x) : undefined,
-          r.y !== undefined ? Math.round(r.y) : undefined,
-        );
-    };
+      return { width, height, ...(r.x !== undefined ? { x: r.x } : {}), ...(r.y !== undefined ? { y: r.y } : {}) };
+    },
+  };
 
   return (
     <Group
@@ -163,9 +149,8 @@ export function ImageNodeBox({ node, selected, onSelect }: ImageNodeBoxProps) {
                 stroke="#6965db"
                 strokeWidth={1.5}
                 strokeScaleEnabled={false}
-                draggable
-                onDragStart={() => useHistory.getState().capture()}
-                onDragMove={onHandleDragMove(h)}
+                onMouseDown={(e) => startHandleResize(h, e, node.id, resizeOpts)}
+                onTouchStart={(e) => startHandleResize(h, e, node.id, resizeOpts)}
                 onMouseEnter={(e) => {
                   const c = e.target.getStage()?.container();
                   if (c) c.style.cursor = cursor;

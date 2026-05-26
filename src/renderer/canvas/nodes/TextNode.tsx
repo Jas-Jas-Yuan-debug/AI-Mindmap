@@ -38,12 +38,11 @@ import { useSelection } from "../../store/selection.js";
 import { useHistory } from "../../store/history.js";
 import { useViewport } from "../../store/viewport.js";
 import {
-  computeResize,
   handleCursor,
   handlePosition,
   RESIZE_HANDLES,
-  type ResizeHandle,
 } from "../interactions/resize.js";
+import { startHandleResize } from "./useResizeHandle.js";
 import { AnchorDots } from "./AnchorDots.js";
 import { reparentOnDrop } from "../interactions/dropReparent.js";
 
@@ -219,42 +218,9 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
   // `computeResize` for the per-handle geometry.
   const handles = useMemo(() => RESIZE_HANDLES, []);
 
-  const onHandleDragMove = (handle: ResizeHandle) =>
-    (e: KonvaEventObject<DragEvent>) => {
-      const stage = e.target.getStage();
-      if (!stage) return;
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      // Pointer is in container/screen space (already accounts for the
-      // browser's CSS layout). Convert to canvas space via the current
-      // viewport.
-      const v = useViewport.getState();
-      const canvasCursor = {
-        x: (pointer.x - v.x) / v.zoom,
-        y: (pointer.y - v.y) / v.zoom,
-      };
-      // Snapshot the latest node state so successive drags compound
-      // correctly. computeResize takes the ORIGINAL geometry; we feed it
-      // the live geometry here so the result is incremental.
-      const live = useNodes.getState().nodes.find((n) => n.id === node.id);
-      if (!live) return;
-      const result = computeResize(handle, live, canvasCursor);
-      useNodes
-        .getState()
-        .resizeNode(
-          node.id,
-          Math.round(result.width),
-          Math.round(result.height),
-          result.x !== undefined ? Math.round(result.x) : undefined,
-          result.y !== undefined ? Math.round(result.y) : undefined,
-        );
-      // Konva positions the handle visually based on its own drag
-      // tracking; rather than fighting that (which would cause jitter),
-      // we let it ride for the duration of the drag — the handle re-
-      // positions to the correct corner/edge on the next render after
-      // the store update propagates. Resetting handle.x() / .y() here
-      // would conflict with Konva's drag bookkeeping.
-    };
+  // Resize is pointer-driven via startHandleResize (see useResizeHandle.ts).
+  // The old Konva-`draggable` handle approach fought the store re-render and
+  // jittered; handles are no longer draggable.
 
   return (
     <Group
@@ -323,13 +289,10 @@ export function TextNodeCard({ node, selected, onSelect }: TextNodeCardProps) {
                 stroke={HANDLE_STROKE}
                 strokeWidth={HANDLE_STROKE_WIDTH}
                 strokeScaleEnabled={false}
-                draggable
-                // History: capture once at the START of a resize gesture so
-                // the whole resize is a single undo step (mirrors the move
-                // drag above). Konva fires onDragStart before the first
-                // onDragMove, so the snapshot precedes any geometry change.
-                onDragStart={() => useHistory.getState().capture()}
-                onDragMove={onHandleDragMove(h)}
+                // Pointer-driven resize — NOT Konva draggable (that caused the
+                // shake). startHandleResize cancels bubbling + captures once.
+                onMouseDown={(e) => startHandleResize(h, e, node.id)}
+                onTouchStart={(e) => startHandleResize(h, e, node.id)}
                 // Set the container cursor on hover for clear affordance.
                 onMouseEnter={(e) => {
                   const stage = e.target.getStage();

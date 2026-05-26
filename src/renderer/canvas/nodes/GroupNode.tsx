@@ -45,12 +45,11 @@ import { descendantsOf, childrenOf, setParent } from "../../store/reparent.js";
 import { reparentOnDrop } from "../interactions/dropReparent.js";
 import { isMostlyInside } from "../interactions/groupHitTest.js";
 import {
-  computeResize,
   handleCursor,
   handlePosition,
   RESIZE_HANDLES,
-  type ResizeHandle,
 } from "../interactions/resize.js";
+import { startHandleResize } from "./useResizeHandle.js";
 
 // --- Visual constants -------------------------------------------------
 //
@@ -250,49 +249,10 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
   // On resize END, any DIRECT child no longer mostly inside the new bounds is
   // detached to the top level (plan §6: "children outside new bounds get
   // parentId cleared"). The whole resize is one undo step (capture on start).
-  const onHandleDragMove = (handle: ResizeHandle) =>
-    (e: KonvaEventObject<DragEvent>) => {
-      const stage = e.target.getStage();
-      if (!stage) return;
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      const v = useViewport.getState();
-      const canvasCursor = {
-        x: (pointer.x - v.x) / v.zoom,
-        y: (pointer.y - v.y) / v.zoom,
-      };
-      const live = useNodes.getState().nodes.find((n) => n.id === node.id);
-      if (!live) return;
-      const result = computeResize(handle, live, canvasCursor, {
-        minWidth: GROUP_MIN_WIDTH,
-        minHeight: GROUP_MIN_HEIGHT,
-      });
-      useNodes
-        .getState()
-        .resizeNode(
-          node.id,
-          Math.round(result.width),
-          Math.round(result.height),
-          result.x !== undefined ? Math.round(result.x) : undefined,
-          result.y !== undefined ? Math.round(result.y) : undefined,
-        );
-    };
-
-  // Stop a resize-handle mousedown/touchstart from bubbling to the parent
-  // Group. Without this, a handle press also triggers the Group's `draggable`
-  // (the body drag), so grabbing a handle started a group MOVE instead of a
-  // resize — the "can't make the box bigger" bug (框子无法变大). TextNode does
-  // not need this because it relies on Konva's innermost-draggable rule, but
-  // the group's body-drag also moves the WHOLE subtree on dragStart, so the
-  // move clearly wins the race there; cancelling the bubble keeps the gesture
-  // owned by the handle's own draggable. Applied via onMouseDown/onTouchStart
-  // on each handle below.
-  const stopHandleBubble = (
-    e: KonvaEventObject<MouseEvent> | KonvaEventObject<TouchEvent>,
-  ) => {
-    e.cancelBubble = true;
-  };
-
+  // Resize is pointer-driven via startHandleResize (see useResizeHandle.ts):
+  // handles are NOT Konva-draggable, so they no longer fight the store
+  // re-render (the shake) and no longer start a group MOVE (the press cancels
+  // bubbling inside startHandleResize). `onResizeEnd` runs as its `onEnd`.
   const onResizeEnd = () => {
     // Detach direct children that the resize pushed (mostly) outside the new
     // bounds. Read live geometry after the resize settled. Wrapped in a
@@ -459,24 +419,24 @@ export function GroupNodeBox({ node, selected, onSelect }: GroupNodeBoxProps) {
                 stroke={HANDLE_STROKE}
                 strokeWidth={HANDLE_STROKE_WIDTH}
                 strokeScaleEnabled={false}
-                draggable
-                // Stop the press from bubbling to the parent Group's body
-                // drag. Without this the group MOVED instead of resizing
-                // (框子无法变大) because the body's onDragStart snapshots the
-                // subtree and wins the gesture. cancelBubble keeps the drag
-                // owned by THIS handle so computeResize runs.
-                onMouseDown={stopHandleBubble}
-                onTouchStart={
-                  stopHandleBubble as unknown as (
-                    e: KonvaEventObject<TouchEvent>,
-                  ) => void
+                // Pointer-driven resize. NOT draggable — that both fought the
+                // store re-render (shake) and let the press start a group MOVE.
+                // startHandleResize cancels bubbling + captures once; onResizeEnd
+                // (its onEnd) detaches children pushed outside the new bounds.
+                onMouseDown={(e) =>
+                  startHandleResize(h, e, node.id, {
+                    minWidth: GROUP_MIN_WIDTH,
+                    minHeight: GROUP_MIN_HEIGHT,
+                    onEnd: onResizeEnd,
+                  })
                 }
-                // Capture once at resize start = one undo step for the whole
-                // resize (matching TextNode). The child-detach on resize end
-                // folds into the same step (setParent does not re-capture).
-                onDragStart={() => useHistory.getState().capture()}
-                onDragMove={onHandleDragMove(h)}
-                onDragEnd={onResizeEnd}
+                onTouchStart={(e) =>
+                  startHandleResize(h, e, node.id, {
+                    minWidth: GROUP_MIN_WIDTH,
+                    minHeight: GROUP_MIN_HEIGHT,
+                    onEnd: onResizeEnd,
+                  })
+                }
                 onMouseEnter={(e) => {
                   const stage = e.target.getStage();
                   const container = stage?.container();
