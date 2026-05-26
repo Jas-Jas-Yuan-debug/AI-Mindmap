@@ -32,6 +32,7 @@
 
 import { create } from "zustand";
 import { makeId } from "../../shared/aimap.js";
+import { reorderLayer, type LayerAction } from "../canvas/layerOrder.js";
 
 // Canonical file-format types, re-exported from the shared schema module so
 // existing consumers can keep importing them from the store path.
@@ -40,6 +41,9 @@ export type {
   HexColor,
   PresetColor,
   Color,
+  StrokeWidth,
+  StrokeStyle,
+  Roundness,
   NodeBase,
   TextNode,
   FileNode,
@@ -91,6 +95,26 @@ export interface NodesState {
    * top-left handle, where width grows AND the node origin shifts).
    */
   resizeNode(id: string, width: number, height: number, x?: number, y?: number): void;
+  /**
+   * Reorder the given selected nodes within the `nodes` array, where array
+   * order IS z-order (plan §5): index 0 is back, last index is front. Used by
+   * the properties panel's Layer section (bring-to-front / forward / backward /
+   * send-to-back). Pure no-op for an empty selection.
+   *
+   * History note: this is a discrete document mutation, so the CALLER wraps it
+   * in `useHistory.getState().transact(...)` (or `capture()`) to make it one
+   * undo step — same pattern as `deleteNode` in `useDeleteKey`. We can't
+   * `capture()` inside the store because the history store imports THIS store
+   * (a reverse import would be a dependency cycle).
+   */
+  reorderLayer(action: LayerAction, selectedIds: readonly string[]): void;
+}
+
+/** Build a `Record<id, true>` selection map from an id list (for layerOrder). */
+function idSet(ids: readonly string[]): Record<string, true> {
+  const m: Record<string, true> = {};
+  for (const id of ids) m[id] = true;
+  return m;
 }
 
 export const useNodes = create<NodesState>((set) => ({
@@ -122,6 +146,8 @@ export const useNodes = create<NodesState>((set) => ({
           : n,
       ),
     })),
+  reorderLayer: (action, selectedIds) =>
+    set((s) => ({ nodes: reorderLayer(action, s.nodes, idSet(selectedIds)) })),
 }));
 
 /**
