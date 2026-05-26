@@ -1,4 +1,4 @@
-// Single-key tool shortcuts (V/T/G/E/I/L), matching the toolbar hints.
+// Single-key tool shortcuts (V/M/T/G/E/I/L), matching the toolbar hints.
 // Suppressed while typing and when a modifier is held (so they don't clash
 // with ⌘-shortcuts or text entry).
 
@@ -8,6 +8,7 @@ import type { Tool } from "../store/tool.js";
 
 const KEY_TO_TOOL: Record<string, Tool> = {
   v: "select",
+  m: "marquee",
   t: "text",
   g: "group",
   e: "edge",

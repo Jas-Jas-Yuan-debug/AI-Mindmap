@@ -225,7 +225,14 @@ export function Canvas() {
       scaleY={zoom}
       style={{
         background: "var(--aim-color-canvas-bg)",
-        cursor: activeTool === "text" || activeTool === "group" ? "crosshair" : pan.cursor,
+        // Placement tools (text/group) AND the marquee/box-select tool show a
+        // crosshair so the canvas reads as "armed for a drag-out gesture".
+        cursor:
+          activeTool === "text" ||
+          activeTool === "group" ||
+          activeTool === "marquee"
+            ? "crosshair"
+            : pan.cursor,
       }}
       onMouseDown={onStageMouseDown}
       onMouseMove={onStageMouseMove}
