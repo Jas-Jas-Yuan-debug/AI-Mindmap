@@ -3,6 +3,7 @@ import { Chrome } from "./ui/Chrome.js";
 import { NodeOverlayLayer } from "./ui/NodeOverlayLayer.js";
 import { GroupOverlayLayer } from "./ui/GroupOverlayLayer.js";
 import { EdgeLabelOverlayLayer } from "./ui/EdgeLabelOverlayLayer.js";
+import { LinkOverlayLayer } from "./ui/LinkOverlayLayer.js";
 import { ErrorDialog } from "./ui/ErrorDialog.js";
 import { UnsavedChangesDialog } from "./ui/UnsavedChangesDialog.js";
 import { ErrorBoundary } from "./ui/ErrorBoundary.js";
@@ -72,6 +73,10 @@ export default function App() {
             NodeOverlayLayer. */}
         <GroupOverlayLayer />
         <EdgeLabelOverlayLayer />
+        {/* sibling D: reliable window-level dblclick → open a LinkNode's URL
+            (renders nothing; the Konva onDblClick path is flaky for draggable
+            Groups). */}
+        <LinkOverlayLayer />
         <Chrome />
         {/* Node-styling: Excalidraw-style properties panel, fixed on the LEFT
             edge below the main menu. Renders null when nothing is selected,
