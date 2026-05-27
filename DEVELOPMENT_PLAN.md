@@ -888,7 +888,7 @@ Main-process AI under `src/main/ai/`: `provider.ts` (AIProvider interface + type
 - Provider implementations: `anthropic.ts` (existing, already wired), `providers/openai.ts`, `providers/google.ts`, `providers/minimax.ts`, `providers/kimi.ts` (OpenAI-compatible REST for OpenAI/MiniMax/Kimi; Gemini REST for Google).
 - Active-provider preference: persisted in Electron `userData`; surfaced via IPC.
 - Settings UI: API-key entry for all five providers; provider-selector dropdown; inline key-format hint (warns if the pasted value looks wrong for the chosen provider — `src/renderer/ai/apiKeyFormat.ts`).
-- OAuth (PKCE + loopback redirect) for the three providers that support it (Anthropic, OpenAI, Google) — landed in PR #NN. The `supportsOAuth` flag and `StoredCredential` shape were pre-defined in PR #52 so the credential store remained stable.
+- OAuth (PKCE + loopback redirect) for the three providers that support it (Anthropic, OpenAI, Google) — landed in PR #53. The `supportsOAuth` flag and `StoredCredential` shape were pre-defined in PR #52 so the credential store remained stable.
 
   **OAuth configuration:** The flow uses PKCE + a temporary `127.0.0.1` loopback redirect handled in the main process; tokens are stored encrypted via the same per-provider credential store and auto-refreshed. Each provider's OAuth client id (and optional secret) is read from env: `AIMAP_OAUTH_ANTHROPIC_CLIENT_ID`, `AIMAP_OAUTH_OPENAI_CLIENT_ID`, `AIMAP_OAUTH_GOOGLE_CLIENT_ID` (and `…_CLIENT_SECRET` where applicable). With no client id set, the "Connect" button returns a clear "set AIMAP_OAUTH_<ID>_CLIENT_ID" error. Endpoints are baked defaults (best-effort; overridable as provider OAuth docs evolve). New main-process files: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`.
 
@@ -897,10 +897,10 @@ Main-process AI under `src/main/ai/`: `provider.ts` (AIProvider interface + type
 **Exit criteria**
 - [x] All 5 providers selectable; API key per provider stored encrypted; chat uses the active provider (PR #52)
 - [x] Renderer never receives a stored secret (only AuthStatus {configured, method}) (PR #52)
-- [x] OAuth sign-in for Anthropic / OpenAI / Google — PKCE + loopback flow, client id per provider via env (PR #NN)
+- [x] OAuth sign-in for Anthropic / OpenAI / Google — PKCE + loopback flow, client id per provider via env (PR #53)
 - [x] Mock/unit tests cover the provider catalog + key-format; CI hits no network (PR #52)
 
-**Phase 9b status: 🟢 done (2026-05-27) — API-key foundation (PR #52) + OAuth for Anthropic/OpenAI/Google (PR #NN).**
+**Phase 9b status: 🟢 done (2026-05-27) — API-key foundation (PR #52) + OAuth for Anthropic/OpenAI/Google (PR #53).**
 
 ---
 
@@ -1014,10 +1014,10 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-27 (Phase 9b complete — OAuth for Anthropic/OpenAI/Google (PKCE + loopback, client id per provider via env) landed in PR #NN; Phase 9b status set to 🟢 done)
+Last updated: 2026-05-27 (Phase 9b complete — OAuth for Anthropic/OpenAI/Google (PKCE + loopback, client id per provider via env) landed in PR #53; Phase 9b status set to 🟢 done)
 
 History:
-- 2026-05-27: PR #NN — Phase 9b complete: OAuth sign-in (PKCE + loopback redirect) for Anthropic, OpenAI, and Google. Infrastructure fully implemented and unit-tested: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`. Client ids configured via env (`AIMAP_OAUTH_<ID>_CLIENT_ID`); tokens stored encrypted in the existing per-provider credential store; auto-refresh included. All 4 Phase 9b exit criteria now ticked.
+- 2026-05-27: PR #53 — Phase 9b complete: OAuth sign-in (PKCE + loopback redirect) for Anthropic, OpenAI, and Google. Infrastructure fully implemented and unit-tested: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`. Client ids configured via env (`AIMAP_OAUTH_<ID>_CLIENT_ID`); tokens stored encrypted in the existing per-provider credential store; auto-refresh included. All 4 Phase 9b exit criteria now ticked.
 - 2026-05-27: Phase 9b plan amendment — multi-provider AI auth (5 providers: Anthropic/Claude, OpenAI/Codex, Google/Gemini, MiniMax, Kimi/Moonshot); per-provider encrypted credential storage, provider registry + factory, active-provider preference; API-key entry for all 5 in Settings; OAuth (PKCE + loopback) for Anthropic/OpenAI/Google in a follow-up PR. Added Phase 9b section, updated §3 AI SDK row, updated §4 `src/main/ai/` directory layout. New files: `src/renderer/ai/apiKeyFormat.ts` (key-format validator), `src/main/ai/types.test.ts`, `src/renderer/ai/apiKeyFormat.test.ts`.
 - 2026-05-26: PR #48 — Phase 8: Excalidraw-style properties panel (`ui/PropertiesPanel.tsx` + `.css`). See history entry 2026-05-26 for full detail.
 - 2026-05-26: PR #49 — Phase 7 bug fix: a LinkNode's double-click now reliably opens its URL. Root cause: opening lived only on the Konva Group's `onDblClick`, but a `draggable` Group fires `dblclick` only inconsistently (a micro pointer move during the double-click registers as a zero-distance drag and resets Konva's click pairing) — text nodes never hit this because their dblclick runs off a window-level DOM listener. Fix: new `ui/LinkOverlayLayer.tsx` installs a window-level DOM `dblclick` listener (same mechanism as NodeOverlayLayer/GroupOverlayLayer/EdgeLabelOverlayLayer) that hit-tests link-node rects only and opens via a shared, normalized opener; the Konva `onDblClick`/`onDblTap` stay as a fallback (touch dbltap). Added a visible "open ↗" pill on the LinkNode (Konva, shown on hover/select) whose SINGLE click opens the URL — discoverable. Extracted pure `canvas/nodes/openLink.ts` (`normalizeOpenableUrl` adds default `https://` to scheme-less hosts like `baidu.com` and rejects non-http(s) schemes; `openLinkUrl` is the side-effecting wrapper) with 10 unit tests. No behavior change to text-card dblclick-to-edit or empty-canvas dblclick-to-create (both guarded by node type / target). Files: new `canvas/nodes/openLink.ts` + `openLink.test.ts` + `ui/LinkOverlayLayer.tsx`; edited `canvas/nodes/LinkNode.tsx`, `App.tsx`.
