@@ -52,6 +52,9 @@ interface AimBridgeAi {
   authStatus(): Promise<Record<ProviderId, AuthStatus>>;
   setKey(provider: ProviderId, key: string): Promise<void>;
   clearAuth(provider: ProviderId): Promise<void>;
+  startOAuth(
+    provider: ProviderId,
+  ): Promise<{ ok: boolean; error?: { kind: string; message: string } }>;
   getActiveProvider(): Promise<ProviderId>;
   setActiveProvider(provider: ProviderId): Promise<void>;
   complete(
@@ -141,6 +144,11 @@ export const electronPlatform: Platform = {
     },
     async clearAuth(provider: ProviderId) {
       await bridge().ai?.clearAuth(provider);
+    },
+    async startOAuth(provider: ProviderId) {
+      const ai = bridge().ai;
+      if (!ai) return { ok: false, error: { kind: "no_key", message: "AI bridge unavailable." } };
+      return ai.startOAuth(provider);
     },
     async getActiveProvider(): Promise<ProviderId> {
       return (await bridge().ai?.getActiveProvider()) ?? "anthropic";

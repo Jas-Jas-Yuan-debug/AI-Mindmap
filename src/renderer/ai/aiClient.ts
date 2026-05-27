@@ -53,6 +53,13 @@ export async function aiSetActiveProvider(id: ProviderId): Promise<void> {
   await window.platform?.ai.setActiveProvider(id);
 }
 
+/** Launch the OAuth flow for the given provider via the platform bridge. */
+export async function aiStartOAuth(provider: ProviderId): Promise<{ ok: boolean; error?: { kind: string; message: string } }> {
+  const p = window.platform;
+  if (!p) return { ok: false, error: { kind: "no_key", message: "Platform unavailable." } };
+  return p.ai.startOAuth(provider);
+}
+
 // ---------------------------------------------------------------------------
 // Completion helpers
 // ---------------------------------------------------------------------------

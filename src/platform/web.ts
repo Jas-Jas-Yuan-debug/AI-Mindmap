@@ -248,6 +248,12 @@ export const webPlatform: Platform = {
     async clearAuth() {
       // No-op on web.
     },
+    async startOAuth() {
+      return {
+        ok: false,
+        error: { kind: "unknown", message: "OAuth is not available in the web build." },
+      };
+    },
     async getActiveProvider(): Promise<ProviderId> {
       return "anthropic";
     },
