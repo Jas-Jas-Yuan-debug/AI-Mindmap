@@ -892,12 +892,12 @@ Main-process AI under `src/main/ai/`: `provider.ts` (AIProvider interface + type
 - Security invariant unchanged: **secrets never leave main**; the renderer only sees `AuthStatus { configured: boolean; method: "apiKey" | "oauth" | null }` over IPC.
 
 **Exit criteria**
-- [ ] All 5 providers selectable; API key per provider stored encrypted; chat uses the active provider
-- [ ] Renderer never receives a stored secret (only AuthStatus {configured, method})
+- [x] All 5 providers selectable; API key per provider stored encrypted; chat uses the active provider (PR #52)
+- [x] Renderer never receives a stored secret (only AuthStatus {configured, method}) (PR #52)
 - [ ] OAuth sign-in for Anthropic / OpenAI / Google (follow-up PR)
-- [ ] Mock/unit tests cover the provider catalog + key-format; CI hits no network
+- [x] Mock/unit tests cover the provider catalog + key-format; CI hits no network (PR #52)
 
-**Phase 9b status: 🟡 in progress**
+**Phase 9b status: 🟡 API-key foundation done (2026-05-27, PR #52); OAuth for Anthropic/OpenAI/Google still to land.**
 
 ---
 
