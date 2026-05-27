@@ -108,6 +108,10 @@ export interface Platform {
     setKey(provider: ProviderId, key: string): Promise<void>;
     /** Remove all credentials for a provider (sign out). */
     clearAuth(provider: ProviderId): Promise<void>;
+    /** Run the OAuth sign-in flow for a provider (Anthropic / OpenAI / Google). */
+    startOAuth(
+      provider: ProviderId,
+    ): Promise<{ ok: boolean; error?: { kind: string; message: string } }>;
     getActiveProvider(): Promise<ProviderId>;
     setActiveProvider(provider: ProviderId): Promise<void>;
   };

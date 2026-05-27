@@ -15,6 +15,7 @@ import {
   aiSetKey,
   aiClearAuth,
   aiSetActiveProvider,
+  aiStartOAuth,
 } from "../ai/aiClient.js";
 
 export interface AiProviderState {
@@ -32,9 +33,11 @@ export interface AiProviderState {
   clearAuth(id: ProviderId): Promise<void>;
   /** Switch the active provider and update local state immediately. */
   setActive(id: ProviderId): Promise<void>;
+  /** Launch the OAuth flow for the given provider; refreshes on success. */
+  startOAuth(id: ProviderId): Promise<{ ok: boolean; error?: { kind: string; message: string } }>;
 }
 
-export const useAiProvider = create<AiProviderState>((set) => ({
+export const useAiProvider = create<AiProviderState>((set, get) => ({
   providers: [],
   statuses: {} as Record<ProviderId, AuthStatus>,
   active: "anthropic",
@@ -72,5 +75,13 @@ export const useAiProvider = create<AiProviderState>((set) => ({
   async setActive(id) {
     await aiSetActiveProvider(id);
     set({ active: id });
+  },
+
+  async startOAuth(id) {
+    const result = await aiStartOAuth(id);
+    if (result.ok) {
+      await get().refresh();
+    }
+    return result;
   },
 }));

@@ -5,6 +5,7 @@
 import type { AIProvider } from "./provider.js";
 import type { ProviderId } from "./types.js";
 import { getCredential } from "./credentials.js";
+import { maybeRefresh } from "./oauth/runner.js";
 import { AnthropicProvider } from "./anthropic.js";
 import { OpenAIProvider } from "./providers/openai.js";
 import { GoogleProvider } from "./providers/google.js";
@@ -13,7 +14,11 @@ import { KimiProvider } from "./providers/kimi.js";
 
 /** Build the AIProvider for `id`, bound to its credential in the store. */
 export function getProvider(id: ProviderId): AIProvider {
-  const resolve = () => getCredential(id);
+  // Refresh an expiring OAuth token (no-op for API keys) just before each call.
+  const resolve = async () => {
+    await maybeRefresh(id);
+    return getCredential(id);
+  };
   switch (id) {
     case "anthropic":
       return new AnthropicProvider(resolve);

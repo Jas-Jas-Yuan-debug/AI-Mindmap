@@ -29,10 +29,13 @@ interface ProviderRowProps {
   status: AuthStatus | undefined;
   onSave(id: ProviderId, key: string): Promise<void>;
   onClear(id: ProviderId): Promise<void>;
+  onOAuth(id: ProviderId): Promise<{ ok: boolean; error?: { kind: string; message: string } }>;
 }
 
-function ProviderRow({ meta, status, onSave, onClear }: ProviderRowProps) {
+function ProviderRow({ meta, status, onSave, onClear, onOAuth }: ProviderRowProps) {
   const [input, setInput] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const configured = status?.configured ?? false;
   const method = status?.method ?? null;
@@ -51,6 +54,19 @@ function ProviderRow({ meta, status, onSave, onClear }: ProviderRowProps) {
   const handleClear = async () => {
     await onClear(meta.id);
     setInput("");
+  };
+
+  const handleOAuth = async () => {
+    setConnecting(true);
+    setOauthError(null);
+    try {
+      const result = await onOAuth(meta.id);
+      if (!result.ok) {
+        setOauthError(result.error?.message ?? "OAuth sign-in failed.");
+      }
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -101,7 +117,7 @@ function ProviderRow({ meta, status, onSave, onClear }: ProviderRowProps) {
           >
             Save
           </button>
-        ) : configured ? (
+        ) : configured && method !== "oauth" ? (
           <button
             type="button"
             className="aim-modal__btn aim-modal__btn--danger"
@@ -109,7 +125,7 @@ function ProviderRow({ meta, status, onSave, onClear }: ProviderRowProps) {
           >
             Clear
           </button>
-        ) : (
+        ) : !configured ? (
           <button
             type="button"
             className="aim-modal__btn"
@@ -117,18 +133,32 @@ function ProviderRow({ meta, status, onSave, onClear }: ProviderRowProps) {
           >
             Save
           </button>
-        )}
+        ) : null}
         {meta.supportsOAuth && (
-          <button
-            type="button"
-            className="aim-modal__btn"
-            disabled
-            title="Coming soon"
-          >
-            Connect (OAuth)
-          </button>
+          method === "oauth" ? (
+            <button
+              type="button"
+              className="aim-modal__btn aim-modal__btn--danger"
+              onClick={() => void handleClear()}
+            >
+              Disconnect
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="aim-modal__btn"
+              disabled={connecting}
+              onClick={() => void handleOAuth()}
+            >
+              {connecting ? "Connecting…" : "Connect (OAuth)"}
+            </button>
+          )
         )}
       </div>
+
+      {oauthError !== null && (
+        <p className="aim-provider-error" role="alert">{oauthError}</p>
+      )}
 
       <a
         href={meta.keyUrl}
@@ -169,6 +199,7 @@ export function SettingsDialog() {
   const setActive = useAiProvider((s) => s.setActive);
   const setKey = useAiProvider((s) => s.setKey);
   const clearAuth = useAiProvider((s) => s.clearAuth);
+  const startOAuth = useAiProvider((s) => s.startOAuth);
 
   const isWeb = typeof window !== "undefined" && window.platform?.kind === "web";
 
@@ -294,6 +325,7 @@ export function SettingsDialog() {
                     status={statuses[meta.id]}
                     onSave={setKey}
                     onClear={clearAuth}
+                    onOAuth={startOAuth}
                   />
                 ))
               )}

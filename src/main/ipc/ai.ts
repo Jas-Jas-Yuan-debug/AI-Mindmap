@@ -20,6 +20,7 @@ import { ipcMain } from "electron";
 import type { IpcMainInvokeEvent, IpcMainEvent } from "electron";
 import { classifyError } from "../ai/errors.js";
 import { getProvider } from "../ai/registry.js";
+import { startOAuth } from "../ai/oauth/runner.js";
 import {
   allAuthStatus,
   clearCredential,
@@ -66,6 +67,21 @@ export function registerAiHandlers(): void {
     async (_e: IpcMainInvokeEvent, providerId: string) => {
       if (!isProviderId(providerId)) return;
       await clearCredential(providerId);
+    },
+  );
+
+  ipcMain.handle(
+    "ai:startOAuth",
+    async (_e: IpcMainInvokeEvent, providerId: string) => {
+      if (!isProviderId(providerId)) {
+        return { ok: false as const, error: { kind: "invalid_request", message: "Unknown provider." } };
+      }
+      try {
+        await startOAuth(providerId);
+        return { ok: true as const };
+      } catch (err) {
+        return { ok: false as const, error: classifyError(err) };
+      }
     },
   );
 

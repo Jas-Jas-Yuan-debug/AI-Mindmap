@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld("aimBridge", {
     setKey: (provider: string, key: string) =>
       ipcRenderer.invoke("ai:setKey", provider, key),
     clearAuth: (provider: string) => ipcRenderer.invoke("ai:clearAuth", provider),
+    startOAuth: (provider: string) => ipcRenderer.invoke("ai:startOAuth", provider),
     getActiveProvider: () => ipcRenderer.invoke("ai:getActiveProvider"),
     setActiveProvider: (provider: string) =>
       ipcRenderer.invoke("ai:setActiveProvider", provider),

@@ -217,6 +217,14 @@
   background: color-mix(in srgb, var(--aim-color-danger) 12%, transparent);
 }
 
+/* Inline OAuth error message */
+.aim-provider-error {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: var(--aim-color-danger, #e03131);
+  line-height: 1.4;
+}
+
 /* "Get a key" link */
 .aim-provider-link {
   font-size: 0.75rem;
