@@ -1,4 +1,10 @@
-import type { FileHandle, Platform, RecentFile } from "../shared/platform.js";
+import type {
+  AuthStatus,
+  FileHandle,
+  Platform,
+  ProviderId,
+  RecentFile,
+} from "../shared/platform.js";
 import { notImplemented } from "../shared/platform.js";
 import { parseAimapFile } from "../shared/aimap.js";
 import { migrate } from "../shared/migrations/index.js";
@@ -219,8 +225,8 @@ export const webPlatform: Platform = {
 
   ai: {
     // AI in the web build needs a server proxy to hold the key (no safeStorage
-    // in the browser); deferred. Report "no key" so AI UI shows the
-    // configure/unavailable message rather than crashing.
+    // in the browser); deferred. Report "no key" / empty provider list so the
+    // AI UI shows the configure/unavailable message rather than crashing.
     async complete() {
       throw new Error("AI is not available in the web build yet (needs a server proxy).");
     },
@@ -230,8 +236,23 @@ export const webPlatform: Platform = {
     async hasKey() {
       return false;
     },
+    async listProviders() {
+      return [];
+    },
+    async authStatus() {
+      return {} as Record<ProviderId, AuthStatus>;
+    },
     async setKey() {
       // No-op on web for now (no secure local storage for an API key).
+    },
+    async clearAuth() {
+      // No-op on web.
+    },
+    async getActiveProvider(): Promise<ProviderId> {
+      return "anthropic";
+    },
+    async setActiveProvider() {
+      // No-op on web.
     },
   },
 

@@ -25,10 +25,18 @@ contextBridge.exposeInMainWorld("aimBridge", {
   links: {
     fetchMeta: (url: string) => ipcRenderer.invoke("links:fetchMeta", url),
   },
-  // Phase 9: AI. The renderer never sees the API key — only these channels.
+  // Phase 9 / 9b: AI. The renderer never sees a stored secret — only these
+  // channels. setKey/clearAuth/setActiveProvider take a provider id.
   ai: {
     hasKey: () => ipcRenderer.invoke("ai:hasKey"),
-    setKey: (key: string) => ipcRenderer.invoke("ai:setKey", key),
+    listProviders: () => ipcRenderer.invoke("ai:listProviders"),
+    authStatus: () => ipcRenderer.invoke("ai:authStatus"),
+    setKey: (provider: string, key: string) =>
+      ipcRenderer.invoke("ai:setKey", provider, key),
+    clearAuth: (provider: string) => ipcRenderer.invoke("ai:clearAuth", provider),
+    getActiveProvider: () => ipcRenderer.invoke("ai:getActiveProvider"),
+    setActiveProvider: (provider: string) =>
+      ipcRenderer.invoke("ai:setActiveProvider", provider),
     complete: (req: unknown) => ipcRenderer.invoke("ai:complete", req),
     // Callback-based stream. Returns an unsubscribe function. The renderer's
     // platform adapter wraps this into an AsyncIterable.

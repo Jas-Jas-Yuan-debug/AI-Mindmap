@@ -3,6 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIError } from "./provider.js";
+import { ProviderError } from "./providers/error.js";
 
 export class MissingKeyError extends Error {
   readonly kind = "no_key" as const;
@@ -14,6 +15,9 @@ export class MissingKeyError extends Error {
 /** Map an SDK/throw into the coarse AIError.kind the renderer can branch on. */
 export function classifyError(err: unknown): AIError {
   if (err instanceof MissingKeyError) return { kind: "no_key", message: err.message };
+  // HTTP providers (OpenAI / Google / MiniMax / Kimi) throw ProviderError with
+  // a pre-classified kind — trust it directly.
+  if (err instanceof ProviderError) return { kind: err.kind, message: err.message };
   if (err instanceof Anthropic.AuthenticationError)
     return { kind: "auth", message: "Invalid API key. Check it in Settings." };
   if (err instanceof Anthropic.PermissionDeniedError)

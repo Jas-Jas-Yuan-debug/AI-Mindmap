@@ -2,9 +2,12 @@ import type {
   AIChunk,
   AIRequest,
   AIResponse,
+  AuthStatus,
   FileHandle,
   LinkMeta,
   Platform,
+  ProviderId,
+  ProviderMeta,
   RecentFile,
 } from "../shared/platform.js";
 import { notImplemented } from "../shared/platform.js";
@@ -45,7 +48,12 @@ type AiStreamEvent =
 
 interface AimBridgeAi {
   hasKey(): Promise<boolean>;
-  setKey(key: string): Promise<void>;
+  listProviders(): Promise<ProviderMeta[]>;
+  authStatus(): Promise<Record<ProviderId, AuthStatus>>;
+  setKey(provider: ProviderId, key: string): Promise<void>;
+  clearAuth(provider: ProviderId): Promise<void>;
+  getActiveProvider(): Promise<ProviderId>;
+  setActiveProvider(provider: ProviderId): Promise<void>;
   complete(
     req: AIRequest,
   ): Promise<
@@ -120,8 +128,25 @@ export const electronPlatform: Platform = {
     async hasKey() {
       return (await bridge().ai?.hasKey()) ?? false;
     },
-    async setKey(key) {
-      await bridge().ai?.setKey(key);
+    async listProviders(): Promise<ProviderMeta[]> {
+      return (await bridge().ai?.listProviders()) ?? [];
+    },
+    async authStatus(): Promise<Record<ProviderId, AuthStatus>> {
+      return (
+        (await bridge().ai?.authStatus()) ?? ({} as Record<ProviderId, AuthStatus>)
+      );
+    },
+    async setKey(provider: ProviderId, key: string) {
+      await bridge().ai?.setKey(provider, key);
+    },
+    async clearAuth(provider: ProviderId) {
+      await bridge().ai?.clearAuth(provider);
+    },
+    async getActiveProvider(): Promise<ProviderId> {
+      return (await bridge().ai?.getActiveProvider()) ?? "anthropic";
+    },
+    async setActiveProvider(provider: ProviderId) {
+      await bridge().ai?.setActiveProvider(provider);
     },
     async complete(req: AIRequest): Promise<AIResponse> {
       const ai = bridge().ai;

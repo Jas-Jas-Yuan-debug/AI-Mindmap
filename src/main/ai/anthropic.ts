@@ -7,22 +7,18 @@
 // - Errors: mapped to the friendly AIError.kind classification via the SDK's
 //   typed exception classes (never string-match error messages).
 //
-// The API key is read from the encrypted key store at call time — it lives in
-// this process only and is never exposed to the renderer.
+// Auth: the credential is resolved at call time via the injected resolver
+// (Phase 9b — the registry passes `() => getCredential("anthropic")`). An API
+// key uses `apiKey`; an OAuth bundle uses the SDK's `authToken` (Bearer). The
+// secret lives in this process only and is never exposed to the renderer.
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIChunk, AIProvider, AIRequest, AIResponse } from "./provider.js";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "./provider.js";
 import { MissingKeyError } from "./errors.js";
-import { hasKey as keyExists, readKey } from "./keyStore.js";
+import type { CredentialResolver } from "./providers/error.js";
 
 export { MissingKeyError, classifyError } from "./errors.js";
-
-async function makeClient(): Promise<Anthropic> {
-  const key = await readKey();
-  if (!key) throw new MissingKeyError();
-  return new Anthropic({ apiKey: key });
-}
 
 /** System prompt with a cache breakpoint (only when non-empty). */
 function systemParam(system: string | undefined) {
@@ -39,12 +35,23 @@ function systemParam(system: string | undefined) {
 export class AnthropicProvider implements AIProvider {
   readonly name = "anthropic";
 
+  constructor(private readonly resolve: CredentialResolver) {}
+
   async hasKey(): Promise<boolean> {
-    return keyExists();
+    return (await this.resolve()) != null;
+  }
+
+  /** Build an SDK client from the resolved credential (apiKey or OAuth). */
+  private async makeClient(): Promise<Anthropic> {
+    const cred = await this.resolve();
+    if (!cred) throw new MissingKeyError();
+    return cred.type === "apiKey"
+      ? new Anthropic({ apiKey: cred.key })
+      : new Anthropic({ authToken: cred.accessToken });
   }
 
   async complete(req: AIRequest): Promise<AIResponse> {
-    const client = await makeClient();
+    const client = await this.makeClient();
     const res = await client.messages.create({
       model: req.model ?? DEFAULT_MODEL,
       max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -67,7 +74,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async *stream(req: AIRequest): AsyncIterable<AIChunk> {
-    const client = await makeClient();
+    const client = await this.makeClient();
     const s = client.messages.stream({
       model: req.model ?? DEFAULT_MODEL,
       max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
