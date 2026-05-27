@@ -82,7 +82,7 @@ The following are **explicitly removed from scope, permanently.** They are not d
 | File I/O (web) | **File System Access API** (Chromium) + download/upload fallback | Local-first in the browser, no server needed for files |
 | Key storage (Electron) | **keytar** (OS keychain) | Never expose keys to renderer |
 | Key storage (web) | `sessionStorage` (memory-bound, cleared on tab close) — or server proxy | No persisted secrets in the browser |
-| AI SDK (first provider) | **@anthropic-ai/sdk** | Project is Anthropic-built; provider interface allows adding others |
+| AI SDK (providers) | **@anthropic-ai/sdk** (Anthropic); OpenAI-compatible REST (OpenAI, MiniMax, Kimi); Gemini REST (Google) — 5 providers behind a shared `AIProvider` interface | Provider abstraction added in Phase 9b; Anthropic via SDK, the rest via fetch-based adapters |
 | Unit tests | **Vitest** | Native TS, fast, Vite-aligned |
 | E2E tests | **Playwright** — for Electron (Playwright-for-Electron) AND web (standard Playwright) | One framework, both platforms |
 | Lint / format | **ESLint** + **Prettier** | Standard; config committed |
@@ -203,8 +203,18 @@ AI-Mindmap/
 │   │   │   ├── ai.ts
 │   │   │   └── settings.ts
 │   │   └── ai/
-│   │       ├── provider.ts         # interface
-│   │       └── anthropic.ts        # impl
+│   │       ├── provider.ts         # AIProvider interface
+│   │       ├── types.ts            # ProviderId, ProviderMeta catalog, AuthStatus
+│   │       ├── credentials.ts      # per-provider safeStorage (ai-cred-<id>.enc)
+│   │       ├── registry.ts         # provider factory (ProviderId → AIProvider)
+│   │       ├── anthropic.ts        # Anthropic impl (@anthropic-ai/sdk, prompt caching)
+│   │       ├── mock.ts             # deterministic MockProvider for tests
+│   │       ├── errors.ts           # classifyError + MissingKeyError
+│   │       └── providers/
+│   │           ├── openai.ts       # OpenAI-compatible REST
+│   │           ├── google.ts       # Gemini REST
+│   │           ├── minimax.ts      # OpenAI-compatible REST (MiniMax)
+│   │           └── kimi.ts         # OpenAI-compatible REST (Moonshot/Kimi)
 │   ├── platform/                   # the Platform interface implementations
 │   │   ├── electron.ts             # uses IPC; wired to preload
 │   │   └── web.ts                  # uses File System Access API + sessionStorage
@@ -867,6 +877,30 @@ Main-process AI under `src/main/ai/`: `provider.ts` (AIProvider interface + type
 
 ---
 
+### Phase 9b — Multi-provider auth (API key + OAuth)
+**Goal:** expand the single-provider AI auth into a full five-provider registry, with encrypted per-provider API-key storage and the UI surface to select and configure each provider.  OAuth (PKCE + loopback) for the three providers that support it lands in a follow-up PR.
+
+**Deliverables**
+- Provider registry: five providers — **Anthropic/Claude**, **OpenAI/Codex**, **Google/Gemini**, **MiniMax**, **Kimi/Moonshot**.
+- `src/main/ai/types.ts` — pure `ProviderId` union, `ProviderMeta` catalog (`PROVIDERS`, `providerMeta()`, `isProviderId()`), `StoredCredential`, `AuthStatus`.
+- `src/main/ai/credentials.ts` — per-provider encrypted credential storage (`safeStorage`, files named `ai-cred-<id>.enc`).
+- `src/main/ai/registry.ts` — provider factory; maps a `ProviderId` to its concrete `AIProvider` implementation.
+- Provider implementations: `anthropic.ts` (existing, already wired), `providers/openai.ts`, `providers/google.ts`, `providers/minimax.ts`, `providers/kimi.ts` (OpenAI-compatible REST for OpenAI/MiniMax/Kimi; Gemini REST for Google).
+- Active-provider preference: persisted in Electron `userData`; surfaced via IPC.
+- Settings UI: API-key entry for all five providers; provider-selector dropdown; inline key-format hint (warns if the pasted value looks wrong for the chosen provider — `src/renderer/ai/apiKeyFormat.ts`).
+- OAuth (PKCE + loopback redirect) for the three providers that support it (Anthropic, OpenAI, Google) — **follow-up PR**; the `supportsOAuth` flag and `StoredCredential` shape are defined now so the credential store stays stable.
+- Security invariant unchanged: **secrets never leave main**; the renderer only sees `AuthStatus { configured: boolean; method: "apiKey" | "oauth" | null }` over IPC.
+
+**Exit criteria**
+- [ ] All 5 providers selectable; API key per provider stored encrypted; chat uses the active provider
+- [ ] Renderer never receives a stored secret (only AuthStatus {configured, method})
+- [ ] OAuth sign-in for Anthropic / OpenAI / Google (follow-up PR)
+- [ ] Mock/unit tests cover the provider catalog + key-format; CI hits no network
+
+**Phase 9b status: 🟡 in progress**
+
+---
+
 ### Phase 10 — AI features
 Each sub-phase is independently shippable.
 
@@ -977,9 +1011,11 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-26 (Phase 8 — Excalidraw-style properties panel: a left-edge `ui/PropertiesPanel.tsx` shown when ≥1 node is selected, writing the per-node style fields — stroke/background/font color (6 presets + custom + transparent), stroke width 1/2/4, border style solid/dashed/dotted, corners sharp/round, opacity 0–100 — plus a Layer section (bring-to-front/forward/backward/send-to-back) backed by a new `reorderLayer` nodes-store action over pure `canvas/layerOrder.ts` helpers. Each change is one undo step via `useHistory.transact`. Builds on the dark-mode-fix style-field foundation.)
+Last updated: 2026-05-27 (Phase 9b — multi-provider AI auth (5 providers, API keys; OAuth for 3 to follow) — added Phase 9b section, updated AI SDK row in §3 tech-stack, updated §4 directory layout for src/main/ai/)
 
 History:
+- 2026-05-27: Phase 9b plan amendment — multi-provider AI auth (5 providers: Anthropic/Claude, OpenAI/Codex, Google/Gemini, MiniMax, Kimi/Moonshot); per-provider encrypted credential storage, provider registry + factory, active-provider preference; API-key entry for all 5 in Settings; OAuth (PKCE + loopback) for Anthropic/OpenAI/Google in a follow-up PR. Added Phase 9b section, updated §3 AI SDK row, updated §4 `src/main/ai/` directory layout. New files: `src/renderer/ai/apiKeyFormat.ts` (key-format validator), `src/main/ai/types.test.ts`, `src/renderer/ai/apiKeyFormat.test.ts`.
+- 2026-05-26: PR #48 — Phase 8: Excalidraw-style properties panel (`ui/PropertiesPanel.tsx` + `.css`). See history entry 2026-05-26 for full detail.
 - 2026-05-26: PR #49 — Phase 7 bug fix: a LinkNode's double-click now reliably opens its URL. Root cause: opening lived only on the Konva Group's `onDblClick`, but a `draggable` Group fires `dblclick` only inconsistently (a micro pointer move during the double-click registers as a zero-distance drag and resets Konva's click pairing) — text nodes never hit this because their dblclick runs off a window-level DOM listener. Fix: new `ui/LinkOverlayLayer.tsx` installs a window-level DOM `dblclick` listener (same mechanism as NodeOverlayLayer/GroupOverlayLayer/EdgeLabelOverlayLayer) that hit-tests link-node rects only and opens via a shared, normalized opener; the Konva `onDblClick`/`onDblTap` stay as a fallback (touch dbltap). Added a visible "open ↗" pill on the LinkNode (Konva, shown on hover/select) whose SINGLE click opens the URL — discoverable. Extracted pure `canvas/nodes/openLink.ts` (`normalizeOpenableUrl` adds default `https://` to scheme-less hosts like `baidu.com` and rejects non-http(s) schemes; `openLinkUrl` is the side-effecting wrapper) with 10 unit tests. No behavior change to text-card dblclick-to-edit or empty-canvas dblclick-to-create (both guarded by node type / target). Files: new `canvas/nodes/openLink.ts` + `openLink.test.ts` + `ui/LinkOverlayLayer.tsx`; edited `canvas/nodes/LinkNode.tsx`, `App.tsx`.
 - 2026-05-26: PR #47 — Bug fix (no phase scope change): marquee/box-select tool + group resize. (1) The toolbar dotted-square was wired to the GROUP tool (click-to-create-group), which users read as box-select ("框选") and "couldn't use". Added an explicit `marquee` Tool (`store/tool.ts`) on the dotted-square icon (`SquareDashedMousePointer`, shortcut `M`); group-creation kept its own tool with a distinct `Group` icon (shortcut `G`). The marquee tool reuses the existing Phase 4 lasso (`useLasso.ts` + `lasso.ts` hit-test) — drag a rectangle on empty canvas, commit selection on release, then one-shot back to `select` (Excalidraw behaviour). Plain select-mode marquee already worked; this exposes it as a first-class tool. Updated `Toolbar.tsx`, `useToolKeys.ts` (m→marquee), `ui/shortcuts.ts` (cheat-sheet), `Canvas.tsx` (crosshair cursor for marquee). (2) Group resize ("框子无法变大"): the 8 resize handles in `GroupNode.tsx` started a group MOVE instead of a resize because the handle mousedown bubbled to the parent Group's body `draggable` (whose onDragStart snapshots the subtree and won the gesture). Fixed by adding `onMouseDown`/`onTouchStart` → `e.cancelBubble = true` on each handle so the drag stays owned by the handle's own draggable (which already calls `computeResize`+`resizeNode`). 3 new marquee-tool hit-test cases in `lasso.test.ts`. No exit-criteria change (Phase 4 lasso + Phase 6 group resize already ticked); fixes broken behaviour the plan described as working.
 - 2026-05-24: initial version

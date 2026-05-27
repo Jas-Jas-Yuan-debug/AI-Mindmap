@@ -29,12 +29,34 @@ export interface RecentFile {
   lastOpenedAt: string;
 }
 
+/** The five supported AI providers. Mirrors src/main/ai/types.ts (main is CJS
+ *  and can't import this ESM module, so the union is duplicated, kept in sync). */
+export type ProviderId = "anthropic" | "openai" | "google" | "minimax" | "kimi";
+
+/** User-facing provider description, sent from main for the Settings UI. */
+export interface ProviderMeta {
+  id: ProviderId;
+  label: string;
+  supportsOAuth: boolean;
+  defaultModel: string;
+  keyPlaceholder: string;
+  keyUrl: string;
+}
+
+/** Auth state for one provider — never includes the secret itself. */
+export interface AuthStatus {
+  configured: boolean;
+  method: "apiKey" | "oauth" | null;
+}
+
 export interface AIRequest {
-  /** Optional — the main-process provider defaults to claude-opus-4-7. */
+  /** Optional — the main-process provider defaults to its own flagship model. */
   model?: string;
   system?: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxTokens?: number;
+  /** Optional provider override; defaults to the persisted active provider. */
+  providerId?: ProviderId;
 }
 
 export interface AIResponse {
@@ -78,8 +100,16 @@ export interface Platform {
   ai: {
     complete(req: AIRequest): Promise<AIResponse>;
     stream(req: AIRequest): AsyncIterable<AIChunk>;
+    /** Whether the ACTIVE provider is configured. */
     hasKey(): Promise<boolean>;
-    setKey(key: string): Promise<void>;
+    listProviders(): Promise<ProviderMeta[]>;
+    authStatus(): Promise<Record<ProviderId, AuthStatus>>;
+    /** Set (empty string clears) a provider's API key. */
+    setKey(provider: ProviderId, key: string): Promise<void>;
+    /** Remove all credentials for a provider (sign out). */
+    clearAuth(provider: ProviderId): Promise<void>;
+    getActiveProvider(): Promise<ProviderId>;
+    setActiveProvider(provider: ProviderId): Promise<void>;
   };
 
   settings: {
