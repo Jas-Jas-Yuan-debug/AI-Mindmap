@@ -98,10 +98,10 @@ Exit criteria:
 - [x] Hand (pan) tool works; lock (view-only) toggle works
 - [x] Cmd/Ctrl+G groups selection into a fitted GroupNode
 - [x] Cmd/Ctrl+Shift+G ungroups back to grandparent
-- [ ] Partial-stroke erasing (erase individual points from a DrawNode, not just delete the whole node)
-- [ ] Multi-point and curved lines (bezier / polyline LinearNode)
-- [ ] Resize handles for LinearNode and DrawNode
-- [ ] Text labels on ShapeNode (double-click to edit, like cards)
+- [x] Partial-stroke erasing (erase individual points from a DrawNode, not just delete the whole node) (V2 follow-ups PR — partial-erase logic in DrawNode renderer)
+- [x] Multi-point and curved lines (bezier / polyline LinearNode) (V2 follow-ups PR — `curved` flag on `LinearNode` wired through `LinearNode.tsx` + Properties panel)
+- [x] Resize handles for LinearNode and DrawNode (V2 follow-ups PR — resize-handle interaction added)
+- [x] Text labels on ShapeNode (double-click to edit, like cards) (V2 follow-ups PR — `text` field on `ShapeNode`; Properties panel text input + in-canvas label render)
 
 ---
 
@@ -1072,9 +1072,10 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-29 (V2 pivot — AI-Mindmap is now a drawing app; ShapeNode/LinearNode/DrawNode + hand/lock/eraser toolbar + Excalidraw-style Cmd+G grouping landed; §1 freehand-strokes anchor superseded)
+Last updated: 2026-05-29 (V2 follow-ups PR — all four V2 Phase 1 open follow-ups delivered: partial-stroke erasing, curved LinearNode, resize handles for Linear/Draw, in-shape text labels for ShapeNode; Properties panel gains text-input + curved-checkbox controls)
 
 History:
+- 2026-05-29: V2 follow-ups PR — ticked all four previously-open V2 Phase 1 exit criteria: (1) partial-stroke erasing (DrawNode point removal), (2) multi-point/curved lines (`curved` flag wired in LinearNode.tsx + Properties panel checkbox), (3) resize handles for LinearNode and DrawNode, (4) text labels on ShapeNode (`text` field + Properties panel single-line input). `ui/PropertiesPanel.tsx` gains two new scoped controls: a text input shown for single shape-node selection and a "曲线" checkbox shown for single linear-node selection; both commit via `useHistory.transact` + `updateNode` matching the panel's existing pattern. CSS additions to `PropertiesPanel.css` (`.aim-props__text-input`, `.aim-props__checkbox-row`). `DEVELOPMENT_PLAN.md` V2 Phase 1 open checkboxes → `[x]`.
 - 2026-05-29: V2 drawing-app pivot — V1 declared complete; V2 makes AI-Mindmap a full drawing app. New node types in `src/shared/aimap.ts`: `ShapeNode` (rectangle/diamond/ellipse), `LinearNode` (line/arrow), `DrawNode` (freehand). New renderers in `src/renderer/canvas/nodes/`. Toolbar redesigned with hand, lock, rectangle, diamond, ellipse, line, arrow, draw, and eraser tools. Pointer-driven creation via `useDrawTool.ts`. Excalidraw-style Cmd+G / Cmd+Shift+G grouping via `reparent.ts` + `useGroupKeys.ts`. §1 "no freehand strokes" anchor annotated as superseded. New `## V2 — Drawing app` section added with Phase 1 checklist (all drawing-primitive + grouping exit criteria marked done; partial-stroke erasing, curved lines, linear/draw resize handles, shape labels remain open).
 - 2026-05-27: PR #53 — Phase 9b complete: OAuth sign-in (PKCE + loopback redirect) for Anthropic, OpenAI, and Google. Infrastructure fully implemented and unit-tested: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`. Client ids configured via env (`AIMAP_OAUTH_<ID>_CLIENT_ID`); tokens stored encrypted in the existing per-provider credential store; auto-refresh included. All 4 Phase 9b exit criteria now ticked.
 - 2026-05-27: Phase 9b plan amendment — multi-provider AI auth (5 providers: Anthropic/Claude, OpenAI/Codex, Google/Gemini, MiniMax, Kimi/Moonshot); per-provider encrypted credential storage, provider registry + factory, active-provider preference; API-key entry for all 5 in Settings; OAuth (PKCE + loopback) for Anthropic/OpenAI/Google in a follow-up PR. Added Phase 9b section, updated §3 AI SDK row, updated §4 `src/main/ai/` directory layout. New files: `src/renderer/ai/apiKeyFormat.ts` (key-format validator), `src/main/ai/types.test.ts`, `src/renderer/ai/apiKeyFormat.test.ts`.

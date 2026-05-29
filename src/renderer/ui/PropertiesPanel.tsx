@@ -43,6 +43,8 @@ import type {
   StrokeWidth,
   StrokeStyle,
   Roundness,
+  ShapeNode,
+  LinearNode,
 } from "../store/nodes.js";
 import { useSelection } from "../store/selection.js";
 import { useHistory } from "../store/history.js";
@@ -53,6 +55,21 @@ import type { LayerAction } from "../canvas/layerOrder.js";
 // regardless of which other panels happen to be mounted.
 import "./Panels.css";
 import "./PropertiesPanel.css";
+
+// ---------------------------------------------------------------------------
+// V2 follow-up augmented types.
+// The spine (FU1/FU2/FU3 agents in the V2-followups build) adds:
+//   ShapeNode.text?: string     — in-shape text label
+//   LinearNode.curved?: boolean — Catmull-Rom curved rendering
+// We declare local augmented intersections so the panel can type-safely read
+// and write these fields without waiting for the shared aimap.ts to be updated
+// in a separate PR. When the shared types land these become a no-op extension.
+// ---------------------------------------------------------------------------
+
+/** ShapeNode extended with the V2 in-shape text label field. */
+type ShapeNodeV2 = ShapeNode & { text?: string };
+/** LinearNode extended with the V2 curved flag (already in aimap.ts). */
+type LinearNodeV2 = LinearNode & { curved?: boolean };
 
 // ---------------------------------------------------------------------------
 // Style field types. These are the canonical per-node style fields defined on
@@ -289,6 +306,47 @@ export function PropertiesPanel() {
             onChange={(e) => patchAll({ opacity: Number(e.target.value) })}
           />
         </section>
+
+        {/* 文字 — In-shape text label (single shape node only) ---------- */}
+        {selectedIds.length === 1 && primary.type === "shape" && (
+          <section className="aim-props__section">
+            <h3 className="aim-props__title">文字</h3>
+            <input
+              className="aim-props__text-input"
+              type="text"
+              placeholder="标签文字…"
+              aria-label="Shape text label"
+              value={(primary as ShapeNodeV2).text ?? ""}
+              onChange={(e) => {
+                const text: string = e.target.value;
+                useHistory.getState().transact(() => {
+                  useNodes.getState().updateNode(primary.id, { text } as Partial<AimapNode>);
+                });
+              }}
+            />
+          </section>
+        )}
+
+        {/* 曲线 — Curved flag (single linear node only) ---------------- */}
+        {selectedIds.length === 1 && primary.type === "linear" && (
+          <section className="aim-props__section">
+            <h3 className="aim-props__title">线条</h3>
+            <label className="aim-props__checkbox-row">
+              <input
+                type="checkbox"
+                checked={(primary as LinearNodeV2).curved ?? false}
+                aria-label="Curved line"
+                onChange={(e) => {
+                  const curved: boolean = e.target.checked;
+                  useHistory.getState().transact(() => {
+                    useNodes.getState().updateNode(primary.id, { curved } as Partial<AimapNode>);
+                  });
+                }}
+              />
+              <span>曲线</span>
+            </label>
+          </section>
+        )}
 
         {/* 图层 — Layer (z-order) --------------------------------------- */}
         <section className="aim-props__section">

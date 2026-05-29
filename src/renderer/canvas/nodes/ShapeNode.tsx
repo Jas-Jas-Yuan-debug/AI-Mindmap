@@ -21,12 +21,13 @@
 
 import { useMemo } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { Group, Rect, Ellipse, Line } from "react-konva";
+import { Group, Rect, Ellipse, Line, Text } from "react-konva";
 import type { ShapeNode } from "../../store/nodes.js";
 import { useResolvedTheme } from "../../theme/useResolvedTheme.js";
 import { resolveNodeStyle } from "./nodeStyle.js";
 import { useNodeDrag } from "./useNodeDrag.js";
 import { useViewport } from "../../store/viewport.js";
+import { useShapeLabelEdit } from "../../store/shapeLabelEdit.js";
 import {
   handleCursor,
   handlePosition,
@@ -41,6 +42,11 @@ import { startHandleResize } from "./useResizeHandle.js";
 // Resize-handle visuals mirror GroupNode / TextNode so all node kinds
 // present the same affordance. Sizes are in SCREEN pixels — divided by
 // zoom each render so they remain easy to grab at any zoom level.
+
+const LABEL_FONT_SIZE = 14;
+/** Horizontal + vertical padding (canvas units) inside the shape bbox
+ *  that keeps the label away from the border. */
+const LABEL_PADDING = 8;
 
 const HANDLE_SCREEN_SIZE = 10;
 const HANDLE_FILL = "#ffffff";
@@ -102,6 +108,21 @@ export function ShapeNodeBox({ node, selected, onSelect }: ShapeNodeBoxProps) {
       }
     : {};
 
+  // Label editing: track whether THIS shape is being edited so the Konva
+  // Text is hidden while the HTML textarea overlay (ShapeLabelOverlayLayer)
+  // shows instead. Using getState() avoids subscribing the whole canvas to
+  // every edit-state change; only the overlay needs to rerender.
+  const isEditingLabel = useShapeLabelEdit((s) => s.editingId === node.id);
+
+  // Double-click / double-tap → enter label-edit mode. cancelBubble prevents
+  // the canvas's "create-on-dblclick" from also firing.
+  const onDblClick = (
+    e: KonvaEventObject<MouseEvent> | KonvaEventObject<TouchEvent>,
+  ) => {
+    e.cancelBubble = true;
+    useShapeLabelEdit.getState().begin(node.id);
+  };
+
   // Selection ring: offset outside the body by a screen-constant 4px gap
   // (divided by zoom), rectangular bbox for all three shape kinds.
   const ringOffset = 4 / zoom;
@@ -129,6 +150,10 @@ export function ShapeNodeBox({ node, selected, onSelect }: ShapeNodeBoxProps) {
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDblClick={onDblClick}
+      onDblTap={
+        onDblClick as unknown as (e: KonvaEventObject<Event>) => void
+      }
       {...pointerHandlers}
     >
       {/* Body — always renders the user's real style so the properties
@@ -178,6 +203,29 @@ export function ShapeNodeBox({ node, selected, onSelect }: ShapeNodeBoxProps) {
             );
         }
       })()}
+
+      {/* Centered label: shown when node.text is non-empty AND this shape
+          is NOT in edit mode (the overlay textarea replaces it while editing).
+          `listening={false}` keeps it non-interactive — clicks still land on
+          the shape body underneath (which IS listening) so selection/drag
+          continue to work normally. `wrap="word"` + `ellipsis` ensures text
+          truncates gracefully when the shape is too small. */}
+      {node.text && !isEditingLabel && (
+        <Text
+          x={LABEL_PADDING}
+          y={LABEL_PADDING}
+          width={node.width - LABEL_PADDING * 2}
+          height={node.height - LABEL_PADDING * 2}
+          text={node.text}
+          fontSize={LABEL_FONT_SIZE}
+          fill={style.fontColor}
+          align="center"
+          verticalAlign="middle"
+          wrap="word"
+          ellipsis
+          listening={false}
+        />
+      )}
 
       {/* Selection ring: rendered on top of the body so the user's real
           border style always shows through. Uses a rectangular bbox (fine

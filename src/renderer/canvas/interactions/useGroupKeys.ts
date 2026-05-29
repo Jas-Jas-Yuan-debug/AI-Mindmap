@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { groupSelection, ungroupSelection } from "../../store/reparent.js";
 import { useSelection } from "../../store/selection.js";
 import { useHistory } from "../../store/history.js";
+import { useNodes } from "../../store/nodes.js";
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -38,13 +39,26 @@ export function useGroupKeys(): void {
         // Cmd/Ctrl + Shift + G → ungroup
         e.preventDefault();
         const ids = Object.keys(useSelection.getState().ids);
+        // Guard: only proceed (and capture history) when at least one selected
+        // id is an actual GroupNode. Without this check, pressing Shift+G on a
+        // non-group selection would (a) push a spurious no-op history snapshot
+        // and (b) wipe the selection via set([]) because ungroupSelection
+        // returns []. Both are user-visible bugs.
+        const nodes = useNodes.getState().nodes;
+        const hasGroup = ids.some((id) => nodes.find((n) => n.id === id)?.type === "group");
+        if (!hasGroup) return;
         useHistory.getState().capture();
         const freed = ungroupSelection(ids);
-        useSelection.getState().set(freed);
+        if (freed.length > 0) useSelection.getState().set(freed);
       } else {
         // Cmd/Ctrl + G → group
         e.preventDefault();
         const ids = Object.keys(useSelection.getState().ids);
+        // Guard: groupSelection requires ≥ 2 valid ids; skip history capture
+        // and mutation when the precondition can't be met so we don't push a
+        // spurious no-op snapshot onto the undo stack.
+        const byId = new Map(useNodes.getState().nodes.map((n) => [n.id, n]));
+        if (ids.filter((id) => byId.has(id)).length < 2) return;
         useHistory.getState().capture();
         const gid = groupSelection(ids);
         if (gid) useSelection.getState().set([gid]);

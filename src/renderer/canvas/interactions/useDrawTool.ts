@@ -4,7 +4,8 @@
 //   - shape  (rectangle / diamond / ellipse): drag a bounding box.
 //   - linear (line / arrow):                   drag from start to end point.
 //   - draw   (freehand):                       collect points along the drag.
-//   - eraser:                                  delete any node under the pointer.
+//   - eraser:                                  partial-erase draw strokes; delete
+//                                              any other node type whole.
 //
 // Approach: create-then-live-update. On mousedown we addNode() a tiny seed node
 // and then mutate its geometry every mousemove, so the user sees the shape grow
@@ -17,6 +18,39 @@
 //
 // Coordinates: points are stored LOCAL to the node origin (x,y), i.e. relative
 // to the bounding-box top-left, matching the LinearNode/DrawNode contract.
+//
+// ---------------------------------------------------------------------------
+// PARTIAL-ERASE ALGORITHM (eraser × draw nodes only):
+//
+// On every eraser mousedown / mousemove tick we:
+//
+//  1. Use nodeIdAt() (Konva intersection) to find any node directly under the
+//     pointer, AND independently scan ALL draw nodes whose axis-aligned bbox
+//     overlaps a ERASER_RADIUS-expanded window around the cursor.  The dual
+//     scan is needed because a fast drag can skip across a thin stroke between
+//     Konva hit-test frames, but the bbox overlap still catches it.
+//
+//  2. For a DRAW node hit:
+//     a. Convert its local points to absolute canvas coords (+ node.x, node.y).
+//     b. Walk each point; mark it "erased" if it falls within ERASER_RADIUS of
+//        the cursor (Euclidean distance).
+//     c. Split surviving (un-erased) points into maximal CONTIGUOUS runs.
+//        A contiguous run is a sequence of consecutive surviving points with no
+//        erased gap between them.
+//     d. deleteNode(original.id).
+//     e. For each surviving run with >= 2 points: addNode() a brand-new DrawNode
+//        carrying over the original's style fields and with its points
+//        re-localised to that run's own bbox.  Runs with < 2 points are dropped.
+//     f. Add the ORIGINAL id to gesture.erased so the same node isn't
+//        re-processed on the next mousemove tick.  The freshly-created fragment
+//        nodes have new ids and can be partially erased again on subsequent
+//        passes (matching Excalidraw behaviour).
+//
+//  3. For any NON-draw node hit: keep the existing whole-node deleteNode().
+//
+//  4. History is captured lazily (once per gesture, on first actual change) via
+//     the existing `captured` flag.
+// ---------------------------------------------------------------------------
 
 import { useCallback, useRef } from "react";
 import type Konva from "konva";
@@ -27,6 +61,7 @@ import {
   useNodes,
   type ShapeKind,
   type LinearKind,
+  type DrawNode,
 } from "../../store/nodes.js";
 import { useSelection } from "../../store/selection.js";
 import { useViewport } from "../../store/viewport.js";
@@ -59,6 +94,8 @@ const DEFAULT_SHAPE_W = 120;
 const DEFAULT_SHAPE_H = 90;
 /** Default stroke width tier for new linear / freehand marks. */
 const DEFAULT_DRAW_STROKE = 2 as const;
+/** Radius (canvas units) within which a draw-node point is considered erased. */
+const ERASER_RADIUS = 10;
 
 export interface DrawToolHandlers {
   /** Returns true if a drawing tool claimed the mousedown (caller should bail). */
@@ -113,6 +150,168 @@ function nodeIdAt(stage: Konva.Stage, ids: ReadonlySet<string>): string | null {
   return null;
 }
 
+/**
+ * Partially erase a draw node: remove all points within ERASER_RADIUS of
+ * (cx, cy), split surviving points into contiguous runs, delete the original,
+ * and add one new DrawNode per surviving run (>= 2 points).
+ *
+ * Returns true if any modification was made (original deleted / fragments
+ * added), false if the eraser missed every point and the node was untouched.
+ */
+function partialEraseDrawNode(
+  node: DrawNode,
+  cx: number,
+  cy: number,
+): boolean {
+  const pts = node.points; // local coords
+  const totalPts = Math.floor(pts.length / 2);
+  if (totalPts === 0) return false;
+
+  // Convert to absolute coords and test each point.
+  const surviving: boolean[] = new Array(totalPts).fill(true) as boolean[];
+  let anyErased = false;
+  for (let i = 0; i < totalPts; i++) {
+    const ax = pts[i * 2]! + node.x;
+    const ay = pts[i * 2 + 1]! + node.y;
+    const dx = ax - cx;
+    const dy = ay - cy;
+    if (dx * dx + dy * dy <= ERASER_RADIUS * ERASER_RADIUS) {
+      surviving[i] = false;
+      anyErased = true;
+    }
+  }
+
+  if (!anyErased) return false;
+
+  // Split remaining points into maximal contiguous runs.
+  type Run = number[]; // absolute [x,y,...] pairs
+  const runs: Run[] = [];
+  let run: Run | null = null;
+  for (let i = 0; i < totalPts; i++) {
+    if (surviving[i]) {
+      if (run === null) run = [];
+      run.push(pts[i * 2]! + node.x, pts[i * 2 + 1]! + node.y);
+    } else {
+      if (run !== null) {
+        runs.push(run);
+        run = null;
+      }
+    }
+  }
+  if (run !== null) runs.push(run);
+
+  // Delete the original.
+  useNodes.getState().deleteNode(node.id);
+
+  // Carry over optional style fields (conditional spreads for exactOptionalPropertyTypes).
+  const styleFields = {
+    ...(node.color !== undefined ? { color: node.color } : {}),
+    ...(node.backgroundColor !== undefined ? { backgroundColor: node.backgroundColor } : {}),
+    ...(node.strokeColor !== undefined ? { strokeColor: node.strokeColor } : {}),
+    ...(node.strokeWidth !== undefined ? { strokeWidth: node.strokeWidth } : {}),
+    ...(node.strokeStyle !== undefined ? { strokeStyle: node.strokeStyle } : {}),
+    ...(node.opacity !== undefined ? { opacity: node.opacity } : {}),
+    ...(node.roundness !== undefined ? { roundness: node.roundness } : {}),
+    ...(node.fontColor !== undefined ? { fontColor: node.fontColor } : {}),
+    ...(node.parentId !== undefined ? { parentId: node.parentId } : {}),
+  };
+
+  // Add one new DrawNode per surviving run (>= 2 points = at least one segment).
+  for (const absRun of runs) {
+    const runPtCount = Math.floor(absRun.length / 2);
+    if (runPtCount < 2) continue; // drop isolated single points
+
+    const b = bbox(absRun);
+    const local: number[] = [];
+    for (let i = 0; i + 1 < absRun.length; i += 2) {
+      local.push(Math.round(absRun[i]! - b.minX), Math.round(absRun[i + 1]! - b.minY));
+    }
+    useNodes.getState().addNode({
+      id: makeNodeId(),
+      type: "draw",
+      x: Math.round(b.minX),
+      y: Math.round(b.minY),
+      width: Math.round(b.maxX - b.minX),
+      height: Math.round(b.maxY - b.minY),
+      points: local,
+      ...styleFields,
+    });
+  }
+
+  return true;
+}
+
+/**
+ * Core eraser tick: called on mousedown AND each mousemove while the eraser is
+ * active.  Finds candidates via two independent methods:
+ *
+ *  A) Konva hit-test (nodeIdAt) — catches the node directly rendered under the
+ *     pointer for all node types.
+ *  B) Bbox scan of all draw nodes — catches draw strokes the eraser crosses
+ *     between hit-test frames (fast drags over thin strokes).
+ *
+ * For draw nodes → partialEraseDrawNode (remove points within ERASER_RADIUS,
+ *   split into fragments).
+ * For all other node types → whole-node deleteNode (existing behaviour).
+ *
+ * History is captured lazily (first modification in the gesture).
+ */
+function applyEraser(
+  stage: Konva.Stage,
+  cx: number,
+  cy: number,
+  gesture: Gesture,
+): void {
+  const allNodes = useNodes.getState().nodes;
+  const ids = new Set(allNodes.map((n) => n.id));
+
+  // --- Method A: Konva intersection hit-test ---------------------------------
+  const hitId = nodeIdAt(stage, ids);
+  if (hitId && !gesture.erased.has(hitId)) {
+    const hitNode = allNodes.find((n) => n.id === hitId);
+    if (hitNode) {
+      if (hitNode.type === "draw") {
+        if (!gesture.captured) {
+          useHistory.getState().capture();
+          gesture.captured = true;
+        }
+        const modified = partialEraseDrawNode(hitNode, cx, cy);
+        if (modified) gesture.erased.add(hitId);
+      } else {
+        if (!gesture.captured) {
+          useHistory.getState().capture();
+          gesture.captured = true;
+        }
+        useNodes.getState().deleteNode(hitId);
+        gesture.erased.add(hitId);
+      }
+    }
+  }
+
+  // --- Method B: bbox scan for draw nodes near cursor ------------------------
+  // Re-read nodes after method A may have mutated the store.
+  const drawNodes = useNodes.getState().nodes.filter(
+    (n): n is DrawNode => n.type === "draw" && !gesture.erased.has(n.id),
+  );
+  for (const dn of drawNodes) {
+    // Quick bbox overlap test (expanded by ERASER_RADIUS on all sides).
+    if (
+      cx < dn.x - ERASER_RADIUS ||
+      cx > dn.x + dn.width + ERASER_RADIUS ||
+      cy < dn.y - ERASER_RADIUS ||
+      cy > dn.y + dn.height + ERASER_RADIUS
+    ) {
+      continue;
+    }
+    if (!gesture.captured) {
+      useHistory.getState().capture();
+      gesture.captured = true;
+    }
+    const modified = partialEraseDrawNode(dn, cx, cy);
+    if (modified) gesture.erased.add(dn.id);
+  }
+}
+
 export function useDrawTool(): DrawToolHandlers {
   const ref = useRef<Gesture | null>(null);
 
@@ -131,7 +330,6 @@ export function useDrawTool(): DrawToolHandlers {
     if (!c) return true; // claimed, but no usable pointer
 
     if (tool === "eraser") {
-      const ids = new Set(useNodes.getState().nodes.map((n) => n.id));
       const gesture: Gesture = {
         kind: "eraser",
         startX: c.x,
@@ -141,13 +339,7 @@ export function useDrawTool(): DrawToolHandlers {
         captured: false,
       };
       ref.current = gesture;
-      const hit = nodeIdAt(stage, ids);
-      if (hit) {
-        useHistory.getState().capture();
-        gesture.captured = true;
-        useNodes.getState().deleteNode(hit);
-        gesture.erased.add(hit);
-      }
+      applyEraser(stage, c.x, c.y, gesture);
       return true;
     }
 
@@ -211,16 +403,7 @@ export function useDrawTool(): DrawToolHandlers {
     if (!c) return;
 
     if (g.kind === "eraser") {
-      const ids = new Set(useNodes.getState().nodes.map((n) => n.id));
-      const hit = nodeIdAt(stage, ids);
-      if (hit && !g.erased.has(hit)) {
-        if (!g.captured) {
-          useHistory.getState().capture();
-          g.captured = true;
-        }
-        useNodes.getState().deleteNode(hit);
-        g.erased.add(hit);
-      }
+      applyEraser(stage, c.x, c.y, g);
       return;
     }
 
@@ -281,7 +464,7 @@ export function useDrawTool(): DrawToolHandlers {
 
     if (g.kind === "shape") {
       const live = useNodes.getState().nodes.find((n) => n.id === nodeId);
-      if (live && (live.width < CLICK_THRESHOLD || live.height < CLICK_THRESHOLD)) {
+      if (live && (live.width < CLICK_THRESHOLD && live.height < CLICK_THRESHOLD)) {
         // A click without a real drag → place a default-size shape.
         useNodes.getState().resizeNode(nodeId, DEFAULT_SHAPE_W, DEFAULT_SHAPE_H, live.x, live.y);
       }
@@ -291,24 +474,21 @@ export function useDrawTool(): DrawToolHandlers {
     }
 
     if (g.kind === "linear") {
-      // Drop a zero-length line (a click with no drag).
-      const b = bbox(g.abs.length >= 2 ? g.abs : [g.startX, g.startY]);
-      const endX = g.abs.length >= 4 ? g.abs[2]! : g.startX;
-      const endY = g.abs.length >= 4 ? g.abs[3]! : g.startY;
-      // abs only holds the start; reconstruct end from the live node.
+      // abs only holds the start point; reconstruct the end from the live node's
+      // points (set by mousemove as local offsets from startX/Y).
       const live = useNodes.getState().nodes.find((n) => n.id === nodeId);
-      const ex = live && live.type === "linear" && live.points.length >= 4 ? g.startX + live.points[2]! : endX;
-      const ey = live && live.type === "linear" && live.points.length >= 4 ? g.startY + live.points[3]! : endY;
+      const ex = live && live.type === "linear" && live.points.length >= 4 ? g.startX + live.points[2]! : g.startX;
+      const ey = live && live.type === "linear" && live.points.length >= 4 ? g.startY + live.points[3]! : g.startY;
       const minX = Math.min(g.startX, ex);
       const minY = Math.min(g.startY, ey);
       const w = Math.abs(ex - g.startX);
       const h = Math.abs(ey - g.startY);
+      // Drop a zero-length line (a click with no drag).
       if (w < CLICK_THRESHOLD && h < CLICK_THRESHOLD) {
         useNodes.getState().deleteNode(nodeId);
         finish();
         return;
       }
-      void b;
       useNodes.getState().updateNode(nodeId, {
         x: Math.round(minX),
         y: Math.round(minY),

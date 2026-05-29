@@ -135,6 +135,8 @@ export interface GroupNode extends NodeBase {
 export interface ShapeNode extends NodeBase {
   type: "shape";
   shape: ShapeKind;
+  /** Optional centered text label drawn inside the shape (V2 follow-up). */
+  text?: string;
 }
 
 /**
@@ -146,6 +148,8 @@ export interface LinearNode extends NodeBase {
   type: "linear";
   linear: LinearKind;
   points: number[];
+  /** When true, render with Catmull-Rom tension (curved line through points). */
+  curved?: boolean;
 }
 
 /**
@@ -321,6 +325,7 @@ const ZShapeNode = z.object({
   ...ZNodeBaseShape,
   type: z.literal("shape"),
   shape: ZShapeKind,
+  text: z.string().optional(),
 });
 
 const ZLinearNode = z.object({
@@ -328,6 +333,7 @@ const ZLinearNode = z.object({
   type: z.literal("linear"),
   linear: ZLinearKind,
   points: z.array(z.number()),
+  curved: z.boolean().optional(),
 });
 
 const ZDrawNode = z.object({
