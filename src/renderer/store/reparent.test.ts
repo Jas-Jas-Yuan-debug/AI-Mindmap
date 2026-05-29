@@ -375,6 +375,24 @@ describe("topGroupOf", () => {
     const result = topGroupOf(corrupt, "X");
     expect(typeof result === "string" || result === null).toBe(true);
   });
+
+  test("3-level nesting: returns the outermost of three group ancestors", () => {
+    // Tree: top (group) > mid (group) > deep (group) > leaf (text)
+    const nodes: AimapNode[] = [
+      group("top"),
+      group("mid", "top"),
+      group("deep", "mid"),
+      text("leaf", "deep"),
+    ];
+    // leaf's ancestor chain: deep → mid → top; outermost group is top
+    expect(topGroupOf(nodes, "leaf")).toBe("top");
+    // deep's ancestor chain: mid → top; outermost group is top
+    expect(topGroupOf(nodes, "deep")).toBe("top");
+    // mid's ancestor chain: top; outermost group is top
+    expect(topGroupOf(nodes, "mid")).toBe("top");
+    // top is a top-level node — no group ancestor above it
+    expect(topGroupOf(nodes, "top")).toBeNull();
+  });
 });
 
 // --- groupSelection --------------------------------------------------------
@@ -438,6 +456,28 @@ describe("groupSelection", () => {
     const nodes = useNodes.getState().nodes;
     expect(nodes.find((n) => n.id === "t1")?.parentId).toBe(gid!);
     expect(nodes.find((n) => n.id === "t2")?.parentId).toBe(gid!);
+  });
+
+  test("a GroupNode can itself be a member of a new group", () => {
+    // Seed: an existing group g0 containing t1, plus a standalone t2.
+    // Grouping [g0, t2] should create a wrapper group that contains both.
+    useNodes.setState({
+      nodes: [
+        { ...group("g0"), x: 50, y: 50, width: 300, height: 200 },
+        { id: "t1", type: "text", x: 100, y: 100, width: 200, height: 80, text: "", parentId: "g0" },
+        { id: "t2", type: "text", x: 500, y: 300, width: 200, height: 80, text: "" },
+      ],
+    });
+    const gid = groupSelection(["g0", "t2"]);
+    expect(gid).not.toBeNull();
+    const nodes = useNodes.getState().nodes;
+    // The existing group g0 and t2 are now children of the new wrapper group.
+    expect(nodes.find((n) => n.id === "g0")?.parentId).toBe(gid!);
+    expect(nodes.find((n) => n.id === "t2")?.parentId).toBe(gid!);
+    // t1 is still a child of g0 (nesting is preserved).
+    expect(nodes.find((n) => n.id === "t1")?.parentId).toBe("g0");
+    // The wrapper is a group node.
+    expect(nodes.find((n) => n.id === gid)?.type).toBe("group");
   });
 });
 
@@ -523,6 +563,56 @@ describe("ungroupSelection", () => {
     const freed = ungroupSelection(["ghost1", "ghost2"]);
     expect(freed).toEqual([]);
     expect(useNodes.getState().nodes.length).toBe(nodeCountBefore);
+  });
+
+  test("nested ungroup: children land in the grandparent group (not top-level)", () => {
+    // Tree: outer (top) > inner (child of outer) > leaf1, leaf2
+    // Ungrouping inner should lift leaf1+leaf2 to outer (not to top-level).
+    // (This is the same as the "lifts direct children to the group's parent" test
+    // but explicitly verifies the grandparent remains the container.)
+    ungroupSelection(["inner"]);
+    expect(exists("inner")).toBe(false);
+    expect(parentOf("leaf1")).toBe("outer"); // lives inside outer, not top-level
+    expect(parentOf("leaf2")).toBe("outer");
+    expect(exists("outer")).toBe(true); // outer still present
+  });
+
+  test("ungrouping both outer and inner simultaneously works regardless of id order", () => {
+    // Simulates the user selecting both the outer and inner groups and pressing
+    // Shift+G. The expected end state: both groups gone, all leaves at top-level.
+    //
+    // When outer is processed first: inner (direct child of outer) is lifted to
+    // top-level, outer deleted. Then inner is processed: leaf1+leaf2 are lifted
+    // to top-level (inner now has no parent), inner deleted.
+    //
+    // When inner is processed first: leaf1+leaf2 are reparented to outer (inner's
+    // parent), inner deleted. Then outer is processed: leaf1+leaf2 (now outer's
+    // direct children) are lifted to top-level, outer deleted.
+    //
+    // Both orderings should produce the same final node state.
+    useNodes.setState({ nodes: nestedTree() });
+    ungroupSelection(["outer", "inner"]);
+    const nodesAfterOuterFirst = useNodes.getState().nodes;
+
+    useNodes.setState({ nodes: nestedTree() });
+    ungroupSelection(["inner", "outer"]);
+    const nodesAfterInnerFirst = useNodes.getState().nodes;
+
+    // Both groups deleted in both orderings.
+    expect(nodesAfterOuterFirst.some((n) => n.id === "outer")).toBe(false);
+    expect(nodesAfterOuterFirst.some((n) => n.id === "inner")).toBe(false);
+    expect(nodesAfterInnerFirst.some((n) => n.id === "outer")).toBe(false);
+    expect(nodesAfterInnerFirst.some((n) => n.id === "inner")).toBe(false);
+
+    // leaf1 and leaf2 end up top-level in both orderings.
+    const parentInOuterFirst = (id: string) =>
+      nodesAfterOuterFirst.find((n) => n.id === id)?.parentId;
+    const parentInInnerFirst = (id: string) =>
+      nodesAfterInnerFirst.find((n) => n.id === id)?.parentId;
+    expect(parentInOuterFirst("leaf1")).toBeUndefined();
+    expect(parentInOuterFirst("leaf2")).toBeUndefined();
+    expect(parentInInnerFirst("leaf1")).toBeUndefined();
+    expect(parentInInnerFirst("leaf2")).toBeUndefined();
   });
 });
 

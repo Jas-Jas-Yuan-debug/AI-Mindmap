@@ -2,6 +2,7 @@ import { Canvas } from "./canvas/Canvas.js";
 import { Chrome } from "./ui/Chrome.js";
 import { NodeOverlayLayer } from "./ui/NodeOverlayLayer.js";
 import { GroupOverlayLayer } from "./ui/GroupOverlayLayer.js";
+import { ShapeLabelOverlayLayer } from "./ui/ShapeLabelOverlayLayer.js";
 import { EdgeLabelOverlayLayer } from "./ui/EdgeLabelOverlayLayer.js";
 import { LinkOverlayLayer } from "./ui/LinkOverlayLayer.js";
 import { ErrorDialog } from "./ui/ErrorDialog.js";
@@ -75,6 +76,8 @@ export default function App() {
             group right-click color picker. Groups-only; text overlays stay in
             NodeOverlayLayer. */}
         <GroupOverlayLayer />
+        {/* V2: shape label edit (double-click a shape → centered textarea). */}
+        <ShapeLabelOverlayLayer />
         <EdgeLabelOverlayLayer />
         {/* sibling D: reliable window-level dblclick → open a LinkNode's URL
             (renders nothing; the Konva onDblClick path is flaky for draggable

@@ -174,3 +174,48 @@
   background: none;
   cursor: pointer;
 }
+
+/* Single-line text input for in-shape label (V2 follow-up). */
+.aim-props__text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--aim-color-border);
+  border-radius: var(--aim-border-radius-md);
+  background: var(--aim-color-island-bg);
+  color: var(--aim-color-text);
+  font-family: var(--aim-font-ui);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  outline: none;
+  transition: var(--aim-transition-state);
+}
+
+.aim-props__text-input:focus {
+  border-color: var(--aim-color-primary);
+  box-shadow: var(--aim-focus-ring, 0 0 0 2px var(--aim-color-primary-light, #e3e2fe));
+}
+
+.aim-props__text-input::placeholder {
+  color: var(--aim-color-text-muted);
+  opacity: 0.6;
+}
+
+/* Checkbox row for boolean toggles (curved line — V2 follow-up). */
+.aim-props__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--aim-color-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.aim-props__checkbox-row input[type="checkbox"] {
+  accent-color: var(--aim-color-primary);
+  width: 0.9rem;
+  height: 0.9rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
