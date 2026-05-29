@@ -10,7 +10,31 @@ import { create } from "zustand";
 // canvas, but as a first-class tool so the toolbar's dotted-square reads as
 // "box-select" (which is what users expect) instead of secretly creating a
 // group. Group CREATION lives on its own "group" tool with a distinct icon.
-export type Tool = "select" | "marquee" | "text" | "group" | "edge" | "image" | "link";
+// V2 (drawing app) widened this union. Tools fall into a few families:
+//   - navigation:  select, hand (pan), marquee (box-select)
+//   - cards/embeds: text, image, link, group, edge
+//   - shapes:      rectangle, diamond, ellipse   → create a ShapeNode
+//   - linear:      line, arrow                   → create a LinearNode
+//   - freehand:    draw                          → create a DrawNode
+//   - eraser:      delete nodes under the pointer
+// "lock" is NOT here — it's a separate toggle (see store/lock.ts), not a tool
+// mode, because it gates interaction rather than arming a placement.
+export type Tool =
+  | "select"
+  | "marquee"
+  | "hand"
+  | "text"
+  | "group"
+  | "edge"
+  | "image"
+  | "link"
+  | "rectangle"
+  | "diamond"
+  | "ellipse"
+  | "line"
+  | "arrow"
+  | "draw"
+  | "eraser";
 
 export interface ToolState {
   activeTool: Tool;

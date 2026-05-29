@@ -20,6 +20,7 @@ import { useImportDnd } from "./import/useImportDnd.js";
 import { useThemeEffect } from "./theme/useThemeEffect.js";
 import { useGlobalShortcuts } from "./ui/useGlobalShortcuts.js";
 import { useChatDocSync } from "./ui/useChatDocSync.js";
+import { useGroupKeys } from "./canvas/interactions/useGroupKeys.js";
 import { useToolKeys } from "./ui/useToolKeys.js";
 
 // Phase 5 PR 3/3 (sibling C): document-lifecycle side effects, kept in a tiny
@@ -39,6 +40,8 @@ function DocumentLifecycle() {
   useChatDocSync();
   // UX: single-key tool shortcuts (V/T/G/E/I/L).
   useToolKeys();
+  // V2: Cmd/Ctrl+G group selection, Cmd/Ctrl+Shift+G ungroup.
+  useGroupKeys();
   return null;
 }
 

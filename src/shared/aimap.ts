@@ -35,7 +35,22 @@ export type Color = HexColor | PresetColor;
 // Nodes
 // ---------------------------------------------------------------------------
 
-export type NodeType = "text" | "file" | "link" | "image" | "group";
+export type NodeType =
+  | "text"
+  | "file"
+  | "link"
+  | "image"
+  | "group"
+  // --- V2 drawing primitives (the app became a drawing app in V2; see the
+  // "V2 — Drawing app" section of DEVELOPMENT_PLAN.md). ----------------------
+  | "shape"
+  | "linear"
+  | "draw";
+
+/** V2 shape primitive variants drawn by ShapeNode. */
+export type ShapeKind = "rectangle" | "diamond" | "ellipse";
+/** V2 linear primitive variants drawn by LinearNode (straight 2-point line). */
+export type LinearKind = "line" | "arrow";
 
 /** Border line width tier. 1 thin · 2 medium · 4 bold (Excalidraw-style). */
 export type StrokeWidth = 1 | 2 | 4;
@@ -109,8 +124,50 @@ export interface GroupNode extends NodeBase {
   collapsed?: boolean;
 }
 
+// --- V2 drawing primitives --------------------------------------------------
+
+/**
+ * A geometric shape: rectangle, diamond, or ellipse. Reuses NodeBase's
+ * x/y/width/height as the bounding box and the per-node style fields
+ * (backgroundColor / strokeColor / strokeWidth / strokeStyle / roundness /
+ * opacity) for paint. Drawn by `canvas/nodes/ShapeNode.tsx`.
+ */
+export interface ShapeNode extends NodeBase {
+  type: "shape";
+  shape: ShapeKind;
+}
+
+/**
+ * A straight 2-point line or arrow. `points` are LOCAL coordinates relative to
+ * (x,y) — `[x0,y0,x1,y1]` — and x/y/width/height describe the bounding box so
+ * the node drags/selects like any other. Drawn by `canvas/nodes/LinearNode.tsx`.
+ */
+export interface LinearNode extends NodeBase {
+  type: "linear";
+  linear: LinearKind;
+  points: number[];
+}
+
+/**
+ * A freehand stroke. `points` are LOCAL coordinates relative to (x,y) —
+ * `[x0,y0,x1,y1,…]` — captured while the pointer is dragged with the draw
+ * tool. Drawn (smoothed) by `canvas/nodes/DrawNode.tsx`.
+ */
+export interface DrawNode extends NodeBase {
+  type: "draw";
+  points: number[];
+}
+
 /** Discriminated union of every node variant the file format supports. */
-export type Node = TextNode | FileNode | LinkNode | ImageNode | GroupNode;
+export type Node =
+  | TextNode
+  | FileNode
+  | LinkNode
+  | ImageNode
+  | GroupNode
+  | ShapeNode
+  | LinearNode
+  | DrawNode;
 
 // ---------------------------------------------------------------------------
 // Edges
@@ -255,12 +312,39 @@ const ZGroupNode = z.object({
   collapsed: z.boolean().optional(),
 });
 
+// --- V2 drawing primitives --------------------------------------------------
+
+const ZShapeKind = z.enum(["rectangle", "diamond", "ellipse"]);
+const ZLinearKind = z.enum(["line", "arrow"]);
+
+const ZShapeNode = z.object({
+  ...ZNodeBaseShape,
+  type: z.literal("shape"),
+  shape: ZShapeKind,
+});
+
+const ZLinearNode = z.object({
+  ...ZNodeBaseShape,
+  type: z.literal("linear"),
+  linear: ZLinearKind,
+  points: z.array(z.number()),
+});
+
+const ZDrawNode = z.object({
+  ...ZNodeBaseShape,
+  type: z.literal("draw"),
+  points: z.array(z.number()),
+});
+
 export const ZNode = z.discriminatedUnion("type", [
   ZTextNode,
   ZFileNode,
   ZLinkNode,
   ZImageNode,
   ZGroupNode,
+  ZShapeNode,
+  ZLinearNode,
+  ZDrawNode,
 ]);
 
 const ZEdgeSide = z.enum(["top", "right", "bottom", "left"]);

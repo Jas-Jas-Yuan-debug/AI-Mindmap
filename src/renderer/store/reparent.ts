@@ -22,6 +22,7 @@
 
 import {
   type AimapNode,
+  makeGroupId,
   useNodes,
 } from "./nodes.js";
 
@@ -177,6 +178,122 @@ export function isHiddenByCollapsedAncestor(
   }
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 6 grouping helpers (S4 — Cmd/Ctrl+G / Cmd/Ctrl+Shift+G)
+// ---------------------------------------------------------------------------
+
+/** Padding around the member bboxes inside a newly-created group container. */
+const GROUP_PAD = 24;
+/** Height reserved above the member area for the group's header bar. */
+const GROUP_HEADER = 28;
+
+/**
+ * Topmost GROUP ancestor of `id` (walk the `parentId` chain upward and return
+ * the OUTERMOST ancestor whose `type === "group"`), or null if the node is not
+ * nested inside any group.
+ *
+ * A `seen` set guards against pre-existing malformed loops so the walk always
+ * terminates. The LAST (outermost) group ancestor found is returned, which is
+ * what the Canvas uses to lift a selection to the top-most groupable unit.
+ */
+export function topGroupOf(
+  nodes: readonly AimapNode[],
+  id: string,
+): string | null {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>([id]);
+  let current = byId.get(id)?.parentId;
+  let outermost: string | null = null;
+  while (current !== undefined) {
+    if (seen.has(current)) break; // defensive: pre-existing loop
+    seen.add(current);
+    const ancestor = byId.get(current);
+    if (ancestor === undefined) break; // dangling parentId
+    if (ancestor.type === "group") outermost = ancestor.id;
+    current = ancestor.parentId;
+  }
+  return outermost;
+}
+
+/**
+ * Group the given node ids into a NEW GroupNode container sized to fit tightly
+ * around them (plus GROUP_PAD + GROUP_HEADER). Returns the new group's id, or
+ * null if fewer than 2 valid node ids are provided.
+ *
+ * History capture is the CALLER's responsibility — call
+ * `useHistory.getState().capture()` BEFORE invoking this function.
+ *
+ * `addNode` is called before `setParent` so the parent exists when the child
+ * is reparented (setParent refuses an unknown parent id).
+ */
+export function groupSelection(ids: readonly string[]): string | null {
+  const nodes = useNodes.getState().nodes;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const valid = ids.filter((id) => byId.has(id));
+  if (valid.length < 2) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const id of valid) {
+    const n = byId.get(id)!;
+    if (n.x < minX) minX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.x + n.width > maxX) maxX = n.x + n.width;
+    if (n.y + n.height > maxY) maxY = n.y + n.height;
+  }
+
+  const gid = makeGroupId();
+  const group: AimapNode = {
+    id: gid,
+    type: "group" as const,
+    x: Math.round(minX - GROUP_PAD),
+    y: Math.round(minY - GROUP_PAD - GROUP_HEADER),
+    width: Math.round((maxX - minX) + GROUP_PAD * 2),
+    height: Math.round((maxY - minY) + GROUP_PAD * 2 + GROUP_HEADER),
+    label: "Group",
+  };
+  useNodes.getState().addNode(group);
+  for (const id of valid) {
+    setParent(id, gid);
+  }
+  return gid;
+}
+
+/**
+ * Ungroup: for each id in `ids` that is a GroupNode, lift its direct children
+ * to the group's OWN parent (preserving outer nesting) and delete the group.
+ * Returns the ids of all freed children (for the caller to re-select).
+ *
+ * History capture is the CALLER's responsibility — call
+ * `useHistory.getState().capture()` BEFORE invoking this function.
+ *
+ * `useNodes.getState().nodes` is re-read per group iteration so changes from
+ * earlier iterations are visible when processing subsequent groups.
+ */
+export function ungroupSelection(ids: readonly string[]): string[] {
+  const freed: string[] = [];
+  for (const id of ids) {
+    // Re-read the store each iteration so earlier deletions are reflected.
+    const nodes = useNodes.getState().nodes;
+    const group = nodes.find((n) => n.id === id);
+    if (!group || group.type !== "group") continue;
+    const groupParent = group.parentId ?? null;
+    const kids = childrenOf(nodes, id);
+    for (const kid of kids) {
+      setParent(kid.id, groupParent);
+      freed.push(kid.id);
+    }
+    useNodes.getState().deleteNode(id);
+  }
+  return freed;
+}
+
+// ---------------------------------------------------------------------------
+// setParent
+// ---------------------------------------------------------------------------
 
 /**
  * Set (or clear) a node's parent. Pass `null` to detach the node to the top

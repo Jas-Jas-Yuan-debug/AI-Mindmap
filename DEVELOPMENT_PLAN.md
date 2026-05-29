@@ -43,7 +43,65 @@ The following are **explicitly removed from scope, permanently.** They are not d
 - Plugin / extension system
 - Custom theme engine beyond dark/light
 - A built-in markdown editor outside of card content (no separate notes pane)
-- Hand-drawn freeform strokes (we're a node-and-edge whiteboard, not a drawing app)
+- Hand-drawn freeform strokes (we're a node-and-edge whiteboard, not a drawing app) **(SUPERSEDED in V2 — see the V2 section below; AI-Mindmap is now a drawing app)**
+
+---
+
+## V2 — Drawing app
+
+**V1 is complete.** All V1 phases (0–9b) have shipped. V2 redefines AI-Mindmap as a **full drawing app**: in addition to the existing node-and-edge whiteboard, users can draw rectangles, diamonds, ellipses, straight lines, arrows, and freehand strokes directly on the canvas. The product owner has authorised this pivot.
+
+### Previously-decided anchor — superseded
+
+> Previously decided: "Hand-drawn freeform strokes — we're a node-and-edge whiteboard, not a drawing app" (§1, "What we are NOT building in V1"). Written as a permanent cut to keep scope focused on the structured whiteboard.
+> **Superseded** because: the product owner has redefined the product as a drawing app for V2. The structural node-edge model and all V1 features are retained; drawing primitives are additive.
+
+### V2 node types (additive — `formatVersion` stays `1`)
+
+All new types live in `src/shared/aimap.ts` alongside existing node types:
+
+| Type | Key fields | Description |
+|---|---|---|
+| `ShapeNode` | `type:"shape"`, `shape:"rectangle"\|"diamond"\|"ellipse"` | Filled/stroked geometric shapes placed by drag |
+| `LinearNode` | `type:"linear"`, `linear:"line"\|"arrow"`, `points:number[]` | Straight lines and arrows defined by a point array |
+| `DrawNode` | `type:"draw"`, `points:number[]` | Freehand pencil strokes |
+
+Renderers: `src/renderer/canvas/nodes/ShapeNode.tsx`, `LinearNode.tsx`, `DrawNode.tsx`.
+
+### V2 toolbar tools
+
+The toolbar (`src/renderer/ui/Toolbar.tsx`) has been redesigned with a creative clustered layout (not a 1:1 Excalidraw copy) and now exposes:
+
+- **Existing:** select, marquee, text, group, edge, image, link
+- **New:** hand (pan), lock (view-only toggle — `src/renderer/store/lock.ts`), rectangle, diamond, ellipse, line, arrow, draw (pencil), eraser
+
+### V2 interaction model
+
+- **Pointer-driven creation:** drag on the canvas with a shape/line/arrow/draw tool to create the corresponding node. Logic in `src/renderer/canvas/interactions/useDrawTool.ts`.
+- **Eraser:** moves over nodes and deletes any node whose bounds intersect the pointer path.
+
+### V2 grouping (Excalidraw-style)
+
+- **Cmd/Ctrl+G** — group the current selection into a fitted `GroupNode` container (`groupSelection` in `src/renderer/store/reparent.ts`).
+- **Cmd/Ctrl+Shift+G** — ungroup: children lift to the grandparent (`ungroupSelection`). Helper `topGroupOf` finds the outermost containing group.
+- Keybindings wired in `src/renderer/canvas/interactions/useGroupKeys.ts`; click-selects-group wired in `Canvas.tsx`.
+
+### V2 Phase 1 — drawing primitives + grouping
+
+Exit criteria:
+
+- [x] Rectangle, diamond, ellipse draw correctly on drag
+- [x] Line and arrow draw correctly on drag
+- [x] Freehand (draw/pencil) stroke draws correctly on drag
+- [x] Eraser deletes nodes under the pointer
+- [x] Toolbar exposes all new drawing tools with correct icons
+- [x] Hand (pan) tool works; lock (view-only) toggle works
+- [x] Cmd/Ctrl+G groups selection into a fitted GroupNode
+- [x] Cmd/Ctrl+Shift+G ungroups back to grandparent
+- [ ] Partial-stroke erasing (erase individual points from a DrawNode, not just delete the whole node)
+- [ ] Multi-point and curved lines (bezier / polyline LinearNode)
+- [ ] Resize handles for LinearNode and DrawNode
+- [ ] Text labels on ShapeNode (double-click to edit, like cards)
 
 ---
 
@@ -1014,9 +1072,10 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-27 (Phase 9b complete — OAuth for Anthropic/OpenAI/Google (PKCE + loopback, client id per provider via env) landed in PR #53; Phase 9b status set to 🟢 done)
+Last updated: 2026-05-29 (V2 pivot — AI-Mindmap is now a drawing app; ShapeNode/LinearNode/DrawNode + hand/lock/eraser toolbar + Excalidraw-style Cmd+G grouping landed; §1 freehand-strokes anchor superseded)
 
 History:
+- 2026-05-29: V2 drawing-app pivot — V1 declared complete; V2 makes AI-Mindmap a full drawing app. New node types in `src/shared/aimap.ts`: `ShapeNode` (rectangle/diamond/ellipse), `LinearNode` (line/arrow), `DrawNode` (freehand). New renderers in `src/renderer/canvas/nodes/`. Toolbar redesigned with hand, lock, rectangle, diamond, ellipse, line, arrow, draw, and eraser tools. Pointer-driven creation via `useDrawTool.ts`. Excalidraw-style Cmd+G / Cmd+Shift+G grouping via `reparent.ts` + `useGroupKeys.ts`. §1 "no freehand strokes" anchor annotated as superseded. New `## V2 — Drawing app` section added with Phase 1 checklist (all drawing-primitive + grouping exit criteria marked done; partial-stroke erasing, curved lines, linear/draw resize handles, shape labels remain open).
 - 2026-05-27: PR #53 — Phase 9b complete: OAuth sign-in (PKCE + loopback redirect) for Anthropic, OpenAI, and Google. Infrastructure fully implemented and unit-tested: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`. Client ids configured via env (`AIMAP_OAUTH_<ID>_CLIENT_ID`); tokens stored encrypted in the existing per-provider credential store; auto-refresh included. All 4 Phase 9b exit criteria now ticked.
 - 2026-05-27: Phase 9b plan amendment — multi-provider AI auth (5 providers: Anthropic/Claude, OpenAI/Codex, Google/Gemini, MiniMax, Kimi/Moonshot); per-provider encrypted credential storage, provider registry + factory, active-provider preference; API-key entry for all 5 in Settings; OAuth (PKCE + loopback) for Anthropic/OpenAI/Google in a follow-up PR. Added Phase 9b section, updated §3 AI SDK row, updated §4 `src/main/ai/` directory layout. New files: `src/renderer/ai/apiKeyFormat.ts` (key-format validator), `src/main/ai/types.test.ts`, `src/renderer/ai/apiKeyFormat.test.ts`.
 - 2026-05-26: PR #48 — Phase 8: Excalidraw-style properties panel (`ui/PropertiesPanel.tsx` + `.css`). See history entry 2026-05-26 for full detail.
