@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useViewport } from "../../store/viewport.js";
+import { useTool } from "../../store/tool.js";
 
 export interface PanHandlers {
   /** Cursor string to apply to the Stage container. */
@@ -39,6 +40,9 @@ export interface PanHandlers {
 
 export function usePan(): PanHandlers {
   const panBy = useViewport((s) => s.panBy);
+  // V2 "hand" tool: an explicit pan mode. When armed, a drag ANYWHERE pans
+  // (even over a node), and the cursor previews "grab" — Excalidraw's hand tool.
+  const handTool = useTool((s) => s.activeTool === "hand");
 
   // Track spacebar at the document level so the cursor can preview
   // "grab" before the user starts dragging.
@@ -91,7 +95,9 @@ export function usePan(): PanHandlers {
       const target = e.target;
       const stage = e.target.getStage();
       const onEmpty = target === stage;
-      if (!onEmpty && !spaceHeld) return;
+      // Pan on empty-canvas drag, spacebar-held drag, OR while the hand tool
+      // is armed (then a drag anywhere pans).
+      if (!onEmpty && !spaceHeld && !handTool) return;
       dragRef.current = {
         active: true,
         lastClientX: e.evt.clientX,
@@ -99,7 +105,7 @@ export function usePan(): PanHandlers {
       };
       setIsPanning(true);
     },
-    [spaceHeld],
+    [spaceHeld, handTool],
   );
 
   const onMouseMove = useCallback(
@@ -141,7 +147,7 @@ export function usePan(): PanHandlers {
 
   const cursor: PanHandlers["cursor"] = isPanning
     ? "grabbing"
-    : spaceHeld
+    : spaceHeld || handTool
       ? "grab"
       : "default";
 

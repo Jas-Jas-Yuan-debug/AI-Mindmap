@@ -62,7 +62,18 @@ function resolveColorOrUndefined(c: Color | undefined): string | undefined {
 }
 
 /** The node "kinds" whose default corner radius differs (text is roomier). */
-export type NodeStyleKind = "text" | "group" | "file" | "link" | "image";
+export type NodeStyleKind =
+  | "text"
+  | "group"
+  | "file"
+  | "link"
+  | "image"
+  // V2 drawing primitives. They use the same theme defaults; the corner-radius
+  // default only matters for "shape" rectangles (round → 10), and is harmless
+  // for linear/draw which don't paint a rounded body.
+  | "shape"
+  | "linear"
+  | "draw";
 
 /** Theme-dependent fallback palette for nodes (used when a field is unset). */
 interface ThemeDefaults {

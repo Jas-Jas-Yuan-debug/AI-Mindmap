@@ -1,0 +1,95 @@
+/* Toolbar.css — layout, dividers, cluster grouping, and lock-button polish.
+   All colour/sizing values use tokens from theme.css; no hard-coded colours. */
+
+/* ─── Cluster dividers ──────────────────────────────────────────────────── */
+
+.aim-toolbar__divider {
+  display: inline-block;
+  width: 1px;
+  height: calc(var(--aim-button-size) * 0.75);
+  background: var(--aim-color-hairline);
+  margin: 0 calc(var(--aim-gap-sm) * 0.5);
+  border-radius: 1px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ─── Tool clusters ─────────────────────────────────────────────────────── */
+
+/* A cluster is a flex run of buttons that share semantic proximity. */
+.aim-toolbar__cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--aim-gap-sm) * 0.5);
+}
+
+/* ─── Lock button — lives at the far-right end, visually separated ──────── */
+
+/* When locked, the icon flips to a filled accent tint so the state is always
+   obvious at a glance — more emphatic than the standard aria-pressed tint. */
+.aim-toolbar__lock[aria-pressed="true"] {
+  background: var(--aim-color-primary-soft);
+  color: var(--aim-color-primary);
+  /* Subtle inset ring to reinforce "something is engaged" */
+  box-shadow: inset 0 0 0 1.5px var(--aim-color-primary);
+}
+
+.aim-toolbar__lock[aria-pressed="true"]:hover {
+  background: var(--aim-color-primary-light);
+}
+
+/* ─── Active-tool badge: tiny dot below the active icon ─────────────────── */
+
+/* We use a ::after pseudo on the wrapper button rather than a separate element
+   so the badge costs no extra DOM. Only visible when aria-pressed is true. */
+.aim-toolbar__cluster .aim-icon-button {
+  position: relative;
+}
+
+.aim-toolbar__cluster .aim-icon-button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--aim-color-primary);
+}
+
+/* ─── Shortcut badge ────────────────────────────────────────────────────── */
+
+/* A tiny keyboard-hint character shown in the button's lower-right corner.
+   Uses the CSS custom property --aim-shortcut set inline via style="". */
+.aim-icon-button[data-shortcut]::before {
+  content: attr(data-shortcut);
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 8px;
+  line-height: 1;
+  font-family: var(--aim-font-mono);
+  color: var(--aim-color-text-muted);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--aim-transition-fast);
+  text-transform: uppercase;
+}
+
+/* Reveal the shortcut hint on hover and when the button is active. */
+.aim-icon-button[data-shortcut]:hover::before,
+.aim-icon-button[data-shortcut][aria-pressed="true"]::before {
+  opacity: 1;
+}
+
+/* ─── Toolbar island sizing ─────────────────────────────────────────────── */
+
+/* The island itself just uses aim-island--row flex.  We add a tiny extra gap
+   between clusters (handled by the divider margin) and cap the padding so the
+   row doesn't grow taller than a single button line. */
+.aim-island--row.aim-toolbar--root {
+  padding: var(--aim-gap-sm);
+  gap: 0;
+  flex-wrap: nowrap;
+}

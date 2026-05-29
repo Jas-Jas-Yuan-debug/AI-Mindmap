@@ -8,10 +8,12 @@ import { useNodes } from "../store/nodes.js";
 import {
   depthOf as groupDepth,
   isHiddenByCollapsedAncestor,
+  topGroupOf,
 } from "../store/reparent.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
 import { useTool } from "../store/tool.js";
+import { useLock } from "../store/lock.js";
 import { Grid } from "./Grid.js";
 import { Origin } from "./Origin.js";
 import { LassoLayer } from "./LassoLayer.js";
@@ -20,6 +22,9 @@ import { GroupNodeBox } from "./nodes/GroupNode.js";
 import { ImageNodeBox } from "./nodes/ImageNode.js";
 import { FileNodeBox } from "./nodes/FileNode.js";
 import { LinkNodeBox } from "./nodes/LinkNode.js";
+import { ShapeNodeBox } from "./nodes/ShapeNode.js";
+import { LinearNodeBox } from "./nodes/LinearNode.js";
+import { DrawNodeBox } from "./nodes/DrawNode.js";
 import { AnchorDots } from "./nodes/AnchorDots.js";
 import { EdgesLayer } from "./edges/EdgesLayer.js";
 import { EdgeDraft } from "./edges/EdgeDraft.js";
@@ -33,6 +38,7 @@ import { useHistoryKeys } from "./interactions/useHistoryKeys.js";
 import { useClipboardKeys } from "./interactions/useClipboardKeys.js";
 import { useFileKeys } from "./interactions/useFileKeys.js";
 import { useCreate } from "./interactions/useCreate.js";
+import { useDrawTool } from "./interactions/useDrawTool.js";
 import { useLasso } from "./interactions/useLasso.js";
 import { useSelectAllKey } from "./interactions/useSelectAllKey.js";
 import { useEdgeSelectClick } from "./interactions/useEdgeSelectClick.js";
@@ -100,6 +106,7 @@ export function Canvas() {
   const nodes = useNodes((s) => s.nodes);
   const selectionIds = useSelection((s) => s.ids);
   const activeTool = useTool((s) => s.activeTool);
+  const locked = useLock((s) => s.locked);
 
   // Phase 6 (sibling C) collapse: a collapsed group hides its whole subtree.
   // We filter the rendered set so hidden descendants neither paint NOR
@@ -128,6 +135,7 @@ export function Canvas() {
   // Phase 5 PR 2 (this PR): Cmd/Ctrl + N/O/S/Shift+S file menu shortcuts.
   useFileKeys();
   const create = useCreate();
+  const drawTool = useDrawTool();
   // Phase 3 PR 2: drag-from-anchor → new edge. Composed with usePan in
   // onStageMouseDown — anchor mousedown short-circuits pan.
   const draw = useDrawEdge();
@@ -142,8 +150,19 @@ export function Canvas() {
   // unselected node on drag-start, so a shift-click that ADDS a node still
   // lets a subsequent group-move drag carry the whole set.
   const selectNode = (id: string, shift: boolean) => {
-    if (shift) useSelection.getState().toggle(id);
-    else useSelection.getState().select(id);
+    const sel = useSelection.getState();
+    if (shift) {
+      sel.toggle(id);
+      return;
+    }
+    // Clicking a grouped node selects its OUTERMOST group first; once that
+    // group is already selected, a second click drills into the member.
+    const top = topGroupOf(useNodes.getState().nodes, id);
+    if (top && top !== id && !sel.isSelected(top)) {
+      sel.select(top);
+    } else {
+      sel.select(id);
+    }
   };
 
   // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
@@ -156,43 +175,50 @@ export function Canvas() {
   // the gesture (drag-to-connect), don't also start a pan / clear
   // selection. Otherwise fall through to pan + empty-canvas-click logic.
   const onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    if (locked) {
+      pan.onMouseDown(e);
+      return;
+    }
+    // Drawing tools (shape/linear/draw/eraser) claim the gesture first.
+    if (drawTool.onMouseDown(e)) return;
     if (draw.onMouseDown(e)) return;
-    // Placement tool armed (text/group): an empty-canvas click should PLACE a
-    // node (handled in onClick), not pan / lasso / clear. Bail early so those
-    // don't interfere. Clicks on existing nodes fall through to normal drag.
     const tool = useTool.getState().activeTool;
+    // Hand tool: drag anywhere pans (usePan honors it); skip lasso/select.
+    if (tool === "hand") {
+      pan.onMouseDown(e);
+      return;
+    }
     if ((tool === "text" || tool === "group") && e.target === e.target.getStage()) {
       return;
     }
-    // Phase 4: lasso owns empty-canvas single-click-drag (no space held).
-    // When it claims the gesture we skip pan AND the empty-canvas clear —
-    // the lasso's mouseup sets the resulting selection (and clears it if the
-    // marquee caught nothing). Pan still owns space-held drags because the
-    // lasso bails when spacebar is down.
     if (lasso.onMouseDown(e)) {
-      // Still drop edge selection so a marquee on empty canvas resets the
-      // edge focus, matching the previous empty-mousedown behaviour.
       useEdgeSelection.getState().clear();
       return;
     }
     pan.onMouseDown(e);
     if (e.target === e.target.getStage()) {
       useSelection.getState().clear();
-      // Empty-canvas mousedown also drops any edge selection so a stray
-      // click on the background "resets" the focus state cleanly. The
-      // onClick handler below will re-do this for any non-edge target —
-      // harmless double-clear.
       useEdgeSelection.getState().clear();
     }
   };
 
   const onStageMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    if (locked) {
+      pan.onMouseMove(e);
+      return;
+    }
+    drawTool.onMouseMove(e);
     draw.onMouseMove(e);
     lasso.onMouseMove(e);
     pan.onMouseMove(e);
   };
 
   const onStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    if (locked) {
+      pan.onMouseUp(e);
+      return;
+    }
+    drawTool.onMouseUp(e);
     draw.onMouseUp(e);
     lasso.onMouseUp(e);
     pan.onMouseUp(e);
@@ -205,6 +231,7 @@ export function Canvas() {
   };
 
   const onStageMouseLeave = (e: KonvaEventObject<MouseEvent>) => {
+    drawTool.onMouseUp(e);
     // If a draft was in flight when the cursor leaves the stage, drop it —
     // mouseup outside the window won't reach us, and a "stuck" ghost would
     // be confusing.
@@ -227,12 +254,23 @@ export function Canvas() {
         background: "var(--aim-color-canvas-bg)",
         // Placement tools (text/group) AND the marquee/box-select tool show a
         // crosshair so the canvas reads as "armed for a drag-out gesture".
-        cursor:
-          activeTool === "text" ||
-          activeTool === "group" ||
-          activeTool === "marquee"
-            ? "crosshair"
-            : pan.cursor,
+        cursor: locked
+          ? pan.isPanning
+            ? "grabbing"
+            : "grab"
+          : activeTool === "eraser"
+            ? "cell"
+            : activeTool === "rectangle" ||
+                activeTool === "diamond" ||
+                activeTool === "ellipse" ||
+                activeTool === "line" ||
+                activeTool === "arrow" ||
+                activeTool === "draw" ||
+                activeTool === "text" ||
+                activeTool === "group" ||
+                activeTool === "marquee"
+              ? "crosshair"
+              : pan.cursor,
       }}
       onMouseDown={onStageMouseDown}
       onMouseMove={onStageMouseMove}
@@ -255,7 +293,7 @@ export function Canvas() {
         <EdgeDraft />
       </Layer>
       <EdgeSelectionHighlight />
-      <Layer>
+      <Layer listening={!locked}>
         {/* Pass 1 (BEHIND): group containers. Rendered first so children in
             pass 2 always paint on top of their group. Phase 6 (sibling B):
             within this pass, sort by nesting DEPTH (ancestors first) so a
@@ -325,6 +363,29 @@ export function Canvas() {
             }
             return (
               <LinkNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
+            );
+          })}
+        {/* Pass 2c (V2): drawing primitives — shape / linear / draw. */}
+        {visibleNodes
+          .filter(
+            (n) => n.type === "shape" || n.type === "linear" || n.type === "draw",
+          )
+          .map((n) => {
+            const selected = Boolean(selectionIds[n.id]);
+            const onNodeSelect = (e: KonvaEventObject<MouseEvent>) =>
+              selectNode(n.id, e.evt.shiftKey);
+            if (n.type === "shape") {
+              return (
+                <ShapeNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
+              );
+            }
+            if (n.type === "linear") {
+              return (
+                <LinearNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
+              );
+            }
+            return (
+              <DrawNodeBox key={n.id} node={n} selected={selected} onSelect={onNodeSelect} />
             );
           })}
       </Layer>

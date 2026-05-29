@@ -16,9 +16,12 @@ import {
   childrenOf,
   depthOf,
   descendantsOf,
+  groupSelection,
   isDescendant,
   isHiddenByCollapsedAncestor,
   setParent,
+  topGroupOf,
+  ungroupSelection,
   wouldCreateCycle,
 } from "./reparent.js";
 import { useHistory } from "./history.js";
@@ -329,6 +332,197 @@ describe("isHiddenByCollapsedAncestor", () => {
   test("a dangling parentId (missing ancestor) is treated as visible", () => {
     const nodes: AimapNode[] = [text("orphan", "ghost")];
     expect(isHiddenByCollapsedAncestor(nodes, "orphan")).toBe(false);
+  });
+});
+
+// --- topGroupOf ------------------------------------------------------------
+
+describe("topGroupOf", () => {
+  // Tree:
+  //   outer (group, top-level)
+  //   └── inner (group, parent outer)
+  //       └── leaf (text, parent inner)
+  //   solo (text, top-level)
+  const nestedTree = (): AimapNode[] => [
+    group("outer"),
+    group("inner", "outer"),
+    text("leaf", "inner"),
+    text("solo"),
+  ];
+
+  test("returns null for a top-level node (no group ancestor)", () => {
+    expect(topGroupOf(nestedTree(), "outer")).toBeNull();
+    expect(topGroupOf(nestedTree(), "solo")).toBeNull();
+  });
+
+  test("returns the outermost group for a deeply nested node", () => {
+    // leaf is under inner under outer; outermost is outer
+    expect(topGroupOf(nestedTree(), "leaf")).toBe("outer");
+  });
+
+  test("returns the direct group parent when only one level of nesting", () => {
+    // inner's parent is outer (a group) so outer is the outermost
+    expect(topGroupOf(nestedTree(), "inner")).toBe("outer");
+  });
+
+  test("returns null for an unknown id", () => {
+    expect(topGroupOf(nestedTree(), "ghost")).toBeNull();
+  });
+
+  test("does not hang on a malformed parentId loop", () => {
+    const corrupt: AimapNode[] = [group("X", "Y"), group("Y", "X")];
+    // Should terminate; result may be X or Y depending on walk order, but MUST NOT throw or loop
+    const result = topGroupOf(corrupt, "X");
+    expect(typeof result === "string" || result === null).toBe(true);
+  });
+});
+
+// --- groupSelection --------------------------------------------------------
+
+describe("groupSelection", () => {
+  // Helper: two text nodes placed at known positions
+  const twoNodes = (): AimapNode[] => [
+    { id: "t1", type: "text", x: 100, y: 100, width: 200, height: 80, text: "" },
+    { id: "t2", type: "text", x: 400, y: 300, width: 200, height: 80, text: "" },
+  ];
+
+  beforeEach(() => {
+    useNodes.setState({ nodes: twoNodes() });
+    useHistory.getState().clear();
+  });
+
+  test("returns null when fewer than 2 valid ids are given", () => {
+    expect(groupSelection([])).toBeNull();
+    expect(groupSelection(["t1"])).toBeNull();
+  });
+
+  test("returns null when given only unknown ids", () => {
+    expect(groupSelection(["ghost1", "ghost2"])).toBeNull();
+  });
+
+  test("creates a new GroupNode in the store and returns its id", () => {
+    const gid = groupSelection(["t1", "t2"]);
+    expect(gid).not.toBeNull();
+    const nodes = useNodes.getState().nodes;
+    const g = nodes.find((n) => n.id === gid);
+    expect(g).toBeDefined();
+    expect(g?.type).toBe("group");
+  });
+
+  test("the new group's bbox encloses both members with padding", () => {
+    const gid = groupSelection(["t1", "t2"])!;
+    const g = useNodes.getState().nodes.find((n) => n.id === gid)!;
+    // minX=100, minY=100; maxX=600, maxY=380
+    // x = round(100 - 24) = 76
+    // y = round(100 - 24 - 28) = 48
+    // w = round((600-100) + 48) = 548
+    // h = round((380-100) + 48 + 28) = 356
+    expect(g.x).toBe(76);
+    expect(g.y).toBe(48);
+    expect(g.width).toBe(548);
+    expect(g.height).toBe(356);
+  });
+
+  test("reparents both members under the new group", () => {
+    const gid = groupSelection(["t1", "t2"])!;
+    const nodes = useNodes.getState().nodes;
+    const t1 = nodes.find((n) => n.id === "t1")!;
+    const t2 = nodes.find((n) => n.id === "t2")!;
+    expect(t1.parentId).toBe(gid);
+    expect(t2.parentId).toBe(gid);
+  });
+
+  test("ignores unknown ids and groups the 2 valid ones", () => {
+    const gid = groupSelection(["t1", "ghost", "t2"]);
+    expect(gid).not.toBeNull();
+    const nodes = useNodes.getState().nodes;
+    expect(nodes.find((n) => n.id === "t1")?.parentId).toBe(gid!);
+    expect(nodes.find((n) => n.id === "t2")?.parentId).toBe(gid!);
+  });
+});
+
+// --- ungroupSelection ------------------------------------------------------
+
+describe("ungroupSelection", () => {
+  // Tree:
+  //   outer (group, top-level)
+  //   └── inner (group, parent outer)
+  //       ├── leaf1 (text, parent inner)
+  //       └── leaf2 (text, parent inner)
+  //   solo (text, top-level)
+  const nestedTree = (): AimapNode[] => [
+    group("outer"),
+    group("inner", "outer"),
+    text("leaf1", "inner"),
+    text("leaf2", "inner"),
+    text("solo"),
+  ];
+
+  beforeEach(() => {
+    useNodes.setState({ nodes: nestedTree() });
+    useHistory.getState().clear();
+  });
+
+  const parentOf = (id: string) =>
+    useNodes.getState().nodes.find((n) => n.id === id)?.parentId;
+  const exists = (id: string) =>
+    useNodes.getState().nodes.some((n) => n.id === id);
+
+  test("returns empty array and is a no-op for a non-group id", () => {
+    const freed = ungroupSelection(["solo"]);
+    expect(freed).toEqual([]);
+    expect(exists("solo")).toBe(true);
+  });
+
+  test("deletes the group node", () => {
+    ungroupSelection(["inner"]);
+    expect(exists("inner")).toBe(false);
+  });
+
+  test("lifts direct children to the group's parent", () => {
+    // inner's parent is outer, so children should become outer's children
+    ungroupSelection(["inner"]);
+    expect(parentOf("leaf1")).toBe("outer");
+    expect(parentOf("leaf2")).toBe("outer");
+  });
+
+  test("lifts children to top-level when the group has no parent", () => {
+    ungroupSelection(["outer"]);
+    expect(exists("outer")).toBe(false);
+    // inner (direct child of outer) should now be top-level
+    expect(parentOf("inner")).toBeUndefined();
+  });
+
+  test("returns the freed child ids", () => {
+    const freed = ungroupSelection(["inner"]);
+    expect(freed.sort()).toEqual(["leaf1", "leaf2"].sort());
+  });
+
+  test("handles multiple groups in one call", () => {
+    // Re-seed with two sibling groups both at top-level
+    useNodes.setState({
+      nodes: [
+        group("g1"),
+        group("g2"),
+        text("a", "g1"),
+        text("b", "g1"),
+        text("c", "g2"),
+      ],
+    });
+    const freed = ungroupSelection(["g1", "g2"]);
+    expect(freed.sort()).toEqual(["a", "b", "c"].sort());
+    expect(exists("g1")).toBe(false);
+    expect(exists("g2")).toBe(false);
+    expect(parentOf("a")).toBeUndefined();
+    expect(parentOf("b")).toBeUndefined();
+    expect(parentOf("c")).toBeUndefined();
+  });
+
+  test("is a no-op for unknown ids", () => {
+    const nodeCountBefore = useNodes.getState().nodes.length;
+    const freed = ungroupSelection(["ghost1", "ghost2"]);
+    expect(freed).toEqual([]);
+    expect(useNodes.getState().nodes.length).toBe(nodeCountBefore);
   });
 });
 

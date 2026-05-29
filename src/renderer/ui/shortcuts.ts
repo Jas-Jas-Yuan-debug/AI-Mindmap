@@ -35,6 +35,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: "mod+V", description: "Paste" },
       { keys: "mod+A", description: "Select all" },
       { keys: "Delete / Backspace", description: "Delete selection" },
+      { keys: "mod+G", description: "Group selection" },
+      { keys: "mod+Shift+G", description: "Ungroup" },
     ],
   },
   {
@@ -52,11 +54,19 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: "V", description: "Select tool" },
       { keys: "M", description: "Box-select tool (drag a marquee)" },
+      { keys: "H", description: "Hand (pan) tool" },
       { keys: "T", description: "Text card tool (click to place)" },
       { keys: "G", description: "Group tool (click to place)" },
       { keys: "E", description: "Edge tool (reveals anchors)" },
+      { keys: "R", description: "Rectangle shape" },
+      { keys: "D", description: "Diamond shape" },
+      { keys: "O", description: "Ellipse shape" },
+      { keys: "A", description: "Arrow tool" },
+      { keys: "P", description: "Draw (pencil) tool" },
+      { keys: "X", description: "Eraser tool" },
       { keys: "I", description: "Insert image" },
       { keys: "L", description: "Insert link" },
+      { keys: "Line / Lock", description: "Toolbar buttons (no single-key shortcut)" },
     ],
   },
   {

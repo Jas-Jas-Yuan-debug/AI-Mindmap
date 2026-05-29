@@ -50,6 +50,11 @@ export type {
   LinkNode,
   ImageNode,
   GroupNode,
+  ShapeNode,
+  ShapeKind,
+  LinearNode,
+  LinearKind,
+  DrawNode,
   Node as AimapFileNode,
 } from "../../shared/aimap.js";
 
@@ -59,6 +64,9 @@ import type {
   ImageNode,
   FileNode,
   LinkNode,
+  ShapeNode,
+  LinearNode,
+  DrawNode,
 } from "../../shared/aimap.js";
 
 /**
@@ -74,7 +82,17 @@ import type {
  * passes in Canvas.tsx are split by `type`, and the markdown overlay only
  * renders for `type === "text"`.
  */
-export type AimapNode = TextNode | GroupNode | ImageNode | FileNode | LinkNode;
+export type AimapNode =
+  | TextNode
+  | GroupNode
+  | ImageNode
+  | FileNode
+  | LinkNode
+  // V2 drawing primitives — the renderer can draw these (ShapeNode.tsx,
+  // LinearNode.tsx, DrawNode.tsx), so they join the runtime union.
+  | ShapeNode
+  | LinearNode
+  | DrawNode;
 
 export interface NodesState {
   nodes: AimapNode[];
