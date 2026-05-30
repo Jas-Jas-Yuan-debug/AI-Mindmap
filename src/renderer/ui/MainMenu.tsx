@@ -3,7 +3,10 @@ import {
   Check,
   ChevronRight,
   Clock,
+  FileDown,
+  FileInput,
   FilePlus,
+  FileUp,
   FolderOpen,
   Maximize2,
   Menu,
@@ -25,6 +28,12 @@ import {
   saveDocument,
   saveDocumentAs,
 } from "../file/fileActions.js";
+import {
+  importFromObsidian,
+  importFromExcalidraw,
+  exportToObsidian,
+  exportToExcalidraw,
+} from "../file/interopActions.js";
 import "./MainMenu.css";
 
 // Hamburger main menu with a small dropdown of commands.
@@ -253,6 +262,60 @@ export function MainMenu({ onClick }: MainMenuProps) {
               </div>
             ) : null}
           </div>
+
+          <div className="aim-mainmenu__divider" role="separator" />
+
+          <div className="aim-mainmenu__section-label" aria-hidden="true">
+            Import / Export
+          </div>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            aria-label="Import Obsidian Canvas"
+            onClick={run(importFromObsidian)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <FileInput size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Import Obsidian Canvas…</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            aria-label="Import Excalidraw"
+            onClick={run(importFromExcalidraw)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <FileInput size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Import Excalidraw…</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            aria-label="Export as Obsidian Canvas"
+            onClick={run(exportToObsidian)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <FileUp size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Export as Obsidian Canvas</span>
+          </button>
+          <button
+            type="button"
+            className="aim-mainmenu__item"
+            role="menuitem"
+            aria-label="Export as Excalidraw"
+            onClick={run(exportToExcalidraw)}
+          >
+            <span className="aim-mainmenu__check" aria-hidden="true">
+              <FileDown size={14} />
+            </span>
+            <span className="aim-mainmenu__label">Export as Excalidraw</span>
+          </button>
 
           <div className="aim-mainmenu__divider" role="separator" />
 
