@@ -8,7 +8,7 @@ import { useNodes } from "../store/nodes.js";
 import {
   depthOf as groupDepth,
   isHiddenByCollapsedAncestor,
-  topGroupOf,
+  groupAncestorsOf,
 } from "../store/reparent.js";
 import { useSelection } from "../store/selection.js";
 import { useEdgeSelection } from "../store/edgeSelection.js";
@@ -155,14 +155,28 @@ export function Canvas() {
       sel.toggle(id);
       return;
     }
-    // Clicking a grouped node selects its OUTERMOST group first; once that
-    // group is already selected, a second click drills into the member.
-    const top = topGroupOf(useNodes.getState().nodes, id);
-    if (top && top !== id && !sel.isSelected(top)) {
-      sel.select(top);
-    } else {
-      sel.select(id);
+    // Excalidraw-style step-down drill. The click target's chain from the
+    // OUTERMOST group down to the node itself is [outer, …, parent, id]. If
+    // exactly one chain member is currently selected, select the NEXT level
+    // in (one step deeper); otherwise (fresh / multi-select) start at the
+    // outermost group. Clicking the leaf while it's already selected keeps it.
+    // This fixes 3+-level nesting, where jumping straight to the outermost
+    // group used to make intermediate groups un-single-clickable.
+    const nodes = useNodes.getState().nodes;
+    const chain = [...groupAncestorsOf(nodes, id), id]; // outermost → node
+    if (chain.length === 1) {
+      sel.select(id); // ungrouped node — nothing to drill
+      return;
     }
+    const selectedIds = Object.keys(sel.ids);
+    const idx = selectedIds.length === 1 ? chain.indexOf(selectedIds[0]!) : -1;
+    const nextId =
+      idx === chain.length - 1
+        ? id // leaf already selected → keep it
+        : idx >= 0
+          ? chain[idx + 1]! // one level deeper
+          : chain[0]!; // fresh click → outermost group
+    sel.select(nextId);
   };
 
   // Compose wheel: zoom owns ctrl/meta+wheel, pan owns plain wheel.
