@@ -16,6 +16,7 @@ import {
   childrenOf,
   depthOf,
   descendantsOf,
+  groupAncestorsOf,
   groupSelection,
   isDescendant,
   isHiddenByCollapsedAncestor,
@@ -392,6 +393,35 @@ describe("topGroupOf", () => {
     expect(topGroupOf(nodes, "mid")).toBe("top");
     // top is a top-level node — no group ancestor above it
     expect(topGroupOf(nodes, "top")).toBeNull();
+  });
+});
+
+describe("groupAncestorsOf", () => {
+  // Tree: top (group) > mid (group) > deep (group) > leaf (text); solo top-level
+  const nodes = (): AimapNode[] => [
+    group("top"),
+    group("mid", "top"),
+    group("deep", "mid"),
+    text("leaf", "deep"),
+    text("solo"),
+  ];
+
+  test("returns [] for a top-level node", () => {
+    expect(groupAncestorsOf(nodes(), "solo")).toEqual([]);
+    expect(groupAncestorsOf(nodes(), "top")).toEqual([]);
+  });
+
+  test("returns group ancestors OUTERMOST first", () => {
+    // leaf is under deep under mid under top → [top, mid, deep]
+    expect(groupAncestorsOf(nodes(), "leaf")).toEqual(["top", "mid", "deep"]);
+    expect(groupAncestorsOf(nodes(), "deep")).toEqual(["top", "mid"]);
+    expect(groupAncestorsOf(nodes(), "mid")).toEqual(["top"]);
+  });
+
+  test("returns [] for an unknown id and does not hang on a loop", () => {
+    expect(groupAncestorsOf(nodes(), "ghost")).toEqual([]);
+    const corrupt: AimapNode[] = [group("X", "Y"), group("Y", "X")];
+    expect(Array.isArray(groupAncestorsOf(corrupt, "X"))).toBe(true);
   });
 });
 

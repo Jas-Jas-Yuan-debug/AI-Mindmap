@@ -217,6 +217,36 @@ export function topGroupOf(
 }
 
 /**
+ * The GROUP ancestors of `id`, ordered OUTERMOST → innermost (the node itself
+ * is NOT included). For a tree `outer > inner > leaf`, calling on `leaf`
+ * returns `[outer, inner]`; on `inner` returns `[outer]`; on a top-level node
+ * returns `[]`.
+ *
+ * The Canvas uses this to drive Excalidraw-style step-down selection: a click
+ * selects the outermost group first, and each subsequent click on the same
+ * spot drills one level deeper (outer → inner → leaf) instead of jumping
+ * straight to the leaf. A `seen` set guards malformed parentId loops.
+ */
+export function groupAncestorsOf(
+  nodes: readonly AimapNode[],
+  id: string,
+): string[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>([id]);
+  const innermostFirst: string[] = [];
+  let current = byId.get(id)?.parentId;
+  while (current !== undefined) {
+    if (seen.has(current)) break; // defensive: pre-existing loop
+    seen.add(current);
+    const ancestor = byId.get(current);
+    if (ancestor === undefined) break; // dangling parentId
+    if (ancestor.type === "group") innermostFirst.push(ancestor.id);
+    current = ancestor.parentId;
+  }
+  return innermostFirst.reverse(); // outermost first
+}
+
+/**
  * Group the given node ids into a NEW GroupNode container sized to fit tightly
  * around them (plus GROUP_PAD + GROUP_HEADER). Returns the new group's id, or
  * null if fewer than 2 valid node ids are provided.
