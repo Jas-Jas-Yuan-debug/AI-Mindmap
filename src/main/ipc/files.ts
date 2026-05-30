@@ -1,4 +1,4 @@
-// Main-process IPC handlers for `.aimap` file persistence (plan §6 Phase 5).
+// Main-process IPC handlers for `.mindmap` file persistence (plan §6 Phase 5).
 //
 // Channels (names mirror src/shared/ipc.ts — kept as string literals here
 // because the main tsconfig excludes src/shared and compiles to CommonJS):
@@ -14,12 +14,17 @@
 // ESM). Main only performs structural fs I/O + JSON parse. The renderer
 // refuses to send an invalid doc to `files:save`/`files:saveAs`, and refuses
 // to surface an invalid doc from `files:open`. See electron.ts.
+//
+// BACK-COMPAT: The open dialog also accepts `.aimap` (the old extension) so
+// existing files continue to open. New files are always saved as `.mindmap`.
+// Internal symbol names (AIMAP_EXT, AimapFile, aimap.ts) are kept unchanged
+// to avoid churn — only the string value and user-facing labels are updated.
 
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import * as path from "path";
 
-const AIMAP_EXT = "aimap";
+const AIMAP_EXT = "mindmap";
 const RECENT_LIMIT = 10;
 
 interface FileHandleDTO {
@@ -85,11 +90,11 @@ export function registerFileHandlers(): void {
     const result = win
       ? await dialog.showOpenDialog(win, {
           properties: ["openFile"],
-          filters: [{ name: "AI-Mindmap", extensions: [AIMAP_EXT] }],
+          filters: [{ name: "Mindmap", extensions: ["mindmap", "aimap"] }],
         })
       : await dialog.showOpenDialog({
           properties: ["openFile"],
-          filters: [{ name: "AI-Mindmap", extensions: [AIMAP_EXT] }],
+          filters: [{ name: "Mindmap", extensions: ["mindmap", "aimap"] }],
         });
     if (result.canceled || result.filePaths.length === 0) return null;
     const filePath = result.filePaths[0]!;
@@ -131,11 +136,11 @@ export function registerFileHandlers(): void {
       const result = win
         ? await dialog.showSaveDialog(win, {
             defaultPath,
-            filters: [{ name: "AI-Mindmap", extensions: [AIMAP_EXT] }],
+            filters: [{ name: "Mindmap", extensions: [AIMAP_EXT] }],
           })
         : await dialog.showSaveDialog({
             defaultPath,
-            filters: [{ name: "AI-Mindmap", extensions: [AIMAP_EXT] }],
+            filters: [{ name: "Mindmap", extensions: [AIMAP_EXT] }],
           });
       if (result.canceled || !result.filePath) return null;
       const filePath = ensureExt(result.filePath);
@@ -152,5 +157,9 @@ export function registerFileHandlers(): void {
 }
 
 function ensureExt(p: string): string {
-  return p.toLowerCase().endsWith(`.${AIMAP_EXT}`) ? p : `${p}.${AIMAP_EXT}`;
+  const lower = p.toLowerCase();
+  // Accept both the new extension and the legacy .aimap extension so existing
+  // files are not force-renamed when the user re-saves them.
+  if (lower.endsWith(".mindmap") || lower.endsWith(".aimap")) return p;
+  return `${p}.${AIMAP_EXT}`;
 }

@@ -53,7 +53,7 @@ function platform() {
  * this module never imports `aimap.ts` directly — if A's signature differs,
  * this is the only call site to touch.
  */
-function buildAimapFile(): AimapFile {
+export function buildAimapFile(): AimapFile {
   const nodes = useNodes.getState().nodes;
   const edges = useEdges.getState().edges;
   const { x, y, zoom } = useViewport.getState();
@@ -74,7 +74,7 @@ function buildAimapFile(): AimapFile {
  * nominal types as the renderer's (they're structurally identical per plan
  * §5; A's renderer-facing shapes match `AimapNode`/`Edge`).
  */
-function loadAimapFile(doc: AimapFile): void {
+export function loadAimapFile(doc: AimapFile): void {
   const { nodes, edges, viewport } = fromAimapFile(doc);
 
   useNodes.setState({ nodes: nodes as AimapNode[] });
@@ -244,7 +244,7 @@ export async function saveDocumentAs(): Promise<void> {
  * Don't Save / Cancel), so we `await` it. When the hook is absent (unit tests
  * / SSR / before C's UI mounts) we proceed unconditionally.
  */
-async function confirmDiscardIfDirty(): Promise<boolean> {
+export async function confirmDiscardIfDirty(): Promise<boolean> {
   const fn =
     typeof window !== "undefined"
       ? window.__aimConfirmDiscard

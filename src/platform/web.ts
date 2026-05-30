@@ -15,8 +15,12 @@ import { migrate } from "../shared/migrations/index.js";
 // migrate) runs here, mirroring the Electron adapter.
 //
 // This module is bundled into the WEB build and MUST NOT reference Electron.
+//
+// BACK-COMPAT: The open picker also accepts `.aimap` (the old extension) so
+// existing files continue to open. New files are always saved as `.mindmap`.
+// The internal variable name AIMAP_EXT is kept; only its value changes.
 
-const AIMAP_EXT = ".aimap";
+const AIMAP_EXT = ".mindmap";
 const RECENT_KEY = "aimap.recentFiles";
 const RECENT_LIMIT = 10;
 
@@ -59,11 +63,16 @@ function trackHandle(h: FsaFileHandle): FileHandle {
   return { _tag: "FileHandle", displayName: h.name, id };
 }
 
+// pickerOpts is used for both open and save pickers.
+// The open picker needs to accept both extensions for back-compat; we list
+// both in the accept map.  The save picker also references this object but
+// the browser uses the suggestedName extension when available, so listing
+// both is harmless for saving.
 const pickerOpts = {
   types: [
     {
-      description: "AI-Mindmap",
-      accept: { "application/json": [AIMAP_EXT] },
+      description: "Mindmap",
+      accept: { "application/json": [AIMAP_EXT, ".aimap"] },
     },
   ],
 };
@@ -107,7 +116,11 @@ function downloadJson(name: string, text: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = name.toLowerCase().endsWith(AIMAP_EXT) ? name : `${name}${AIMAP_EXT}`;
+  const lowerName = name.toLowerCase();
+  a.download =
+    lowerName.endsWith(".mindmap") || lowerName.endsWith(".aimap")
+      ? name
+      : `${name}${AIMAP_EXT}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -118,7 +131,7 @@ function uploadJson(): Promise<{ name: string; text: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = AIMAP_EXT + ",application/json";
+    input.accept = AIMAP_EXT + ",.aimap,application/json";
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return resolve(null);
@@ -192,15 +205,17 @@ export const webPlatform: Platform = {
         throw new Error(`Refusing to save invalid document: ${parsed.error}`);
       }
       const text = JSON.stringify(parsed.data, null, 2);
-      const name = suggestedName ?? "Untitled.aimap";
+      const name = suggestedName ?? "Untitled.mindmap";
       if (hasFsa()) {
         let handle: FsaFileHandle;
         try {
+          const lowerSuggest = name.toLowerCase();
           handle = await fsa().showSaveFilePicker!({
             ...pickerOpts,
-            suggestedName: name.toLowerCase().endsWith(AIMAP_EXT)
-              ? name
-              : `${name}${AIMAP_EXT}`,
+            suggestedName:
+              lowerSuggest.endsWith(".mindmap") || lowerSuggest.endsWith(".aimap")
+                ? name
+                : `${name}${AIMAP_EXT}`,
           });
         } catch {
           return null; // user cancelled

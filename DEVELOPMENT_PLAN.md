@@ -34,7 +34,7 @@ The renderer code is **platform-agnostic**. A `Platform` adapter (`src/platform/
 The following are **explicitly removed from scope, permanently.** They are not deferred to a later phase; they are not a stretch goal; they are not "maybe one day." Do not propose them in a future PR without first opening a Plan-amendment PR that justifies un-cutting them.
 
 - **Any form of multi-user collaboration.** No real-time co-editing. No comment threads. No presence indicators. No shared cursors. No invite links. No accounts. This is a single-user tool.
-- **Interop with other apps' file formats.** Not Obsidian Canvas (`.canvas`), not Excalidraw (`.excalidraw`), not Miro, not Figma, not anything else. Our `.aimap` files are ours alone. We do not promise round-trip with any external tool. We will not implement import/export adapters for other apps.
+- **Interop with other apps' file formats.** Not Obsidian Canvas (`.canvas`), not Excalidraw (`.excalidraw`), not Miro, not Figma, not anything else. Our `.aimap` files are ours alone. We do not promise round-trip with any external tool. We will not implement import/export adapters for other apps. **(SUPERSEDED in V2 — import/export for Obsidian Canvas + Excalidraw landed; the owner redefined the product to interoperate. Miro/Figma deferred — no open local file format, REST-API-only. See the "Interop (V2)" section below.)**
 - **Server-side document storage / sync.** Local-first only. If a user wants to sync, they use iCloud Drive / Dropbox / a network drive on their own — we do not build, run, or integrate with any sync service.
 - **Accounts, login, telemetry.** None. The app does not phone home.
 
@@ -85,6 +85,26 @@ The toolbar (`src/renderer/ui/Toolbar.tsx`) has been redesigned with a creative 
 - **Cmd/Ctrl+G** — group the current selection into a fitted `GroupNode` container (`groupSelection` in `src/renderer/store/reparent.ts`).
 - **Cmd/Ctrl+Shift+G** — ungroup: children lift to the grandparent (`ungroupSelection`). Helper `topGroupOf` finds the outermost containing group.
 - Keybindings wired in `src/renderer/canvas/interactions/useGroupKeys.ts`; click-selects-group wired in `Canvas.tsx`.
+
+### Interop (V2)
+
+The §1 "no interop" permanent cut was superseded when the product owner authorised import/export in V2. The scope is deliberately narrow and best-effort (lossy where formats differ):
+
+| Format | Direction | Notes |
+|---|---|---|
+| Obsidian Canvas (`.canvas`) | Import + Export | JSON Canvas 1.0 subset; our extra fields (drawing nodes, viewport, chats) are dropped on export |
+| Excalidraw (`.excalidraw`) | Import + Export | Node-and-edge canvas elements mapped best-effort; freehand strokes and Excalidraw-specific fields are dropped |
+| Miro | Deferred | No open local file format; REST-API-only — out of scope unless a local export format becomes available |
+| Figma | Deferred | No open local file format; REST-API-only — out of scope unless a local export format becomes available |
+
+Exit criteria (V2 interop):
+
+- [x] Obsidian Canvas `.canvas` import reads nodes + edges into the canvas (best-effort; unsupported node types shown as generic text cards)
+- [x] Obsidian Canvas `.canvas` export writes a valid JSON Canvas 1.0 file (our extra fields omitted)
+- [x] Excalidraw `.excalidraw` import reads supported element types into the canvas (best-effort; freehand/path elements dropped)
+- [x] Excalidraw `.excalidraw` export writes a file Excalidraw can open (best-effort; DrawNode strokes and app-specific metadata omitted)
+- [ ] Miro import/export — deferred (REST-API-only)
+- [ ] Figma import/export — deferred (REST-API-only)
 
 ### V2 Phase 1 — drawing primitives + grouping
 
@@ -451,7 +471,7 @@ export interface ChatThread {
 - **Edge defaults: `fromEnd: "none"`, `toEnd: "arrow"`.** An edge with neither end field is a one-way arrow.
 - **`FileNode.file` / `ImageNode.file` paths are relative** to the folder containing the `.aimap` file. Convert absolute paths on save. Images are copied into `<filename>.aimap.assets/` next to the document on import.
 - **Unknown fields are dropped on save.** No round-trip preservation — we have no external tool to round-trip with.
-- **File extension: `.aimap`.** MIME type: `application/json` over HTTP; internally treated as our own type.
+- **File extension: `.mindmap`** (renamed from `.aimap` in V2; `.aimap` files still open for back-compat). MIME type: `application/json` over HTTP; internally treated as our own type. The internal schema/type names (`aimap.ts`, `AimapFile`, `AIMAP_EXT` variable) are kept unchanged to avoid churn — only the extension string value and user-facing dialog labels were updated.
 
 ### Minimal valid file (for tests)
 
@@ -1072,9 +1092,10 @@ This plan **will** be wrong about something. When you discover that:
 - Scope change (new phase needed, exit criteria wrong): dedicated PR titled `Plan: <change>`, explain why in body.
 - Architectural disagreement: open an issue first, give the other agent ~24h, then propose a plan amendment via PR.
 
-Last updated: 2026-05-29 (V2 follow-ups PR — all four V2 Phase 1 open follow-ups delivered: partial-stroke erasing, curved LinearNode, resize handles for Linear/Draw, in-shape text labels for ShapeNode; Properties panel gains text-input + curved-checkbox controls)
+Last updated: 2026-05-30 (V2 interop + `.mindmap` rename — file extension changed from `.aimap` to `.mindmap` (back-compat: `.aimap` still opens); §1 interop-prohibition bullet annotated as SUPERSEDED; "Interop (V2)" subsection added documenting Obsidian Canvas + Excalidraw import/export as delivered, Miro/Figma deferred; §5 file-extension rule updated)
 
 History:
+- 2026-05-30: V2 interop + `.mindmap` rename — renamed the on-disk extension from `.aimap` to `.mindmap` (internal symbols `AIMAP_EXT`/`AimapFile`/`aimap.ts` kept unchanged to avoid churn). Open dialogs accept both `.mindmap` and `.aimap`; save/save-as writes `.mindmap`. `src/main/ipc/files.ts` `AIMAP_EXT` value + `ensureExt` + dialog filters updated; `src/platform/web.ts` `AIMAP_EXT`, `pickerOpts`, `uploadJson` accept, `downloadJson` suffix check, and `saveCanvasAs` suffix check all updated. §1 interop-prohibition bullet annotated SUPERSEDED (Obsidian Canvas + Excalidraw import/export delivered; Miro/Figma deferred). "Interop (V2)" subsection added with exit-criteria checklist (Obsidian Canvas + Excalidraw [x]; Miro/Figma deferred [ ]). §5 file-extension rule updated to document the rename and back-compat policy.
 - 2026-05-29: V2 follow-ups PR — ticked all four previously-open V2 Phase 1 exit criteria: (1) partial-stroke erasing (DrawNode point removal), (2) multi-point/curved lines (`curved` flag wired in LinearNode.tsx + Properties panel checkbox), (3) resize handles for LinearNode and DrawNode, (4) text labels on ShapeNode (`text` field + Properties panel single-line input). `ui/PropertiesPanel.tsx` gains two new scoped controls: a text input shown for single shape-node selection and a "曲线" checkbox shown for single linear-node selection; both commit via `useHistory.transact` + `updateNode` matching the panel's existing pattern. CSS additions to `PropertiesPanel.css` (`.aim-props__text-input`, `.aim-props__checkbox-row`). `DEVELOPMENT_PLAN.md` V2 Phase 1 open checkboxes → `[x]`.
 - 2026-05-29: V2 drawing-app pivot — V1 declared complete; V2 makes AI-Mindmap a full drawing app. New node types in `src/shared/aimap.ts`: `ShapeNode` (rectangle/diamond/ellipse), `LinearNode` (line/arrow), `DrawNode` (freehand). New renderers in `src/renderer/canvas/nodes/`. Toolbar redesigned with hand, lock, rectangle, diamond, ellipse, line, arrow, draw, and eraser tools. Pointer-driven creation via `useDrawTool.ts`. Excalidraw-style Cmd+G / Cmd+Shift+G grouping via `reparent.ts` + `useGroupKeys.ts`. §1 "no freehand strokes" anchor annotated as superseded. New `## V2 — Drawing app` section added with Phase 1 checklist (all drawing-primitive + grouping exit criteria marked done; partial-stroke erasing, curved lines, linear/draw resize handles, shape labels remain open).
 - 2026-05-27: PR #53 — Phase 9b complete: OAuth sign-in (PKCE + loopback redirect) for Anthropic, OpenAI, and Google. Infrastructure fully implemented and unit-tested: `src/main/ai/oauth/{pkce.ts, configs.ts, authUrl.ts, runner.ts}`. Client ids configured via env (`AIMAP_OAUTH_<ID>_CLIENT_ID`); tokens stored encrypted in the existing per-provider credential store; auto-refresh included. All 4 Phase 9b exit criteria now ticked.
